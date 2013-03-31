@@ -15,28 +15,46 @@ generality will come later.
 To begin interacting with any api, you've got to create a Navigator that points
 to the api root. As an example, we'll connect to the haltalk api.
 
+```python
     >>> from rest_navigator import Navigator
     >>> N = Navigator('http://haltalk.herokuapp.com/', name="haltalk")
     >>> N
     Navigator('haltalk')
-    
+```
+
 Usually, with the index, the data isn't too important, rather the links it gives
 you are important. Let's look at those:
 
+```python
     >>> N.links()
     {'ht:users': Navigator('haltalk')['ht:users'],
      'ht:signup': Navigator('haltalk')['ht:signup'],
      'ht:me': Navigator('haltalk')['ht:me']*,
      'ht:latest-posts': Navigator('haltalk')['ht:latest-posts']
     }
+```
 
 Here we can see that the links are organized by their relation type (the key),
 and each key corresponds to a new Navigator that represents some other
-resource. Let's dereference one of them:
-    
-    >>> N['ht:']()
-    {
-    
+resource.
+
+In addition, the root has some state associated with it which you can get in two different ways:
+
+```python
+    >>> state = N()
+    >>> objson
+    {u'hint_1': u'You need an account to post stuff..',
+     u'hint_2': u'Create one by POSTing via the ht:signup link..',
+     u'hint_3': u'Click the orange buttons on the right to make POST requests..',
+     u'hint_4': u'Click the green button to follow a link with a GET request..',
+     u'hint_5': u'Click the book icon to read docs for the link relation.',
+     u'welcome': u'Welcome to a haltalk server.'}
+    >>> state2 = N.state  # identical to state
+```
+
+Calling a Navigator with curly brackets executes a GET request against the resource and returns its value.
+
+This isn't a very interesting example, because the 
 Notice there aren't any URIs here, that's on purpose. rest_navigator
 makes working directly with URIs awkward, because you really shouldn't need to
 handle them directly with a properly designed RESTful API.
