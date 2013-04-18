@@ -29,7 +29,7 @@ class ZachMorrisException(ValueError):
 
 
 def fix_scheme(url):
-    '''Appends the http:// scheme if necessary to a url. Fails if a scheme 
+    '''Appends the http:// scheme if necessary to a url. Fails if a scheme
     other than http is used'''
     splitted = url.split('://')
     if len(splitted) == 2:
@@ -46,7 +46,7 @@ def fix_scheme(url):
 
 class Navigator(object):
     '''The main navigation entity'''
-    
+
     def __init__(self, root, name=None):
         self.root = fix_scheme(root)
         self.name = root if name is None else name
@@ -69,7 +69,7 @@ class Navigator(object):
     def links(self):
         r'''Returns links from the current resource'''
         return self._links
-    
+
     def GET(self):
         r'''Handles GET requests for a resource'''
         self.response = requests.get(self.url)

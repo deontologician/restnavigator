@@ -65,9 +65,9 @@ def test_Navigator__links():
         N = RN.Navigator('http://www.example.com')
         assert N.links == {'ht:users':
                            RN.Navigator('http://www.example.com')['ht:users']}
-    
+
 def test_Navigator__call():
-    with httprettify() as HTTPretty:
+    with httprettify():
         url = 'http://www.example.com/index'
         server_state = dict(some_attribute='some value')
         register_hal(url=url, state=server_state, title='Example Title')
@@ -88,7 +88,7 @@ def test_Navigator__init_accept_schemaless():
     assert N2.url == url2
 
 def test_Navigator__getitem_self_link():
-    with httprettify() as HTTPretty:
+    with httprettify():
         url = 'http://www.example.com/index'
         title = 'Some kinda title'
         register_hal(url, title=title)
@@ -99,7 +99,7 @@ def test_Navigator__getitem_self_link():
 
 
 def test_Navigator__identity_map():
-    with httprettify() as HTTPretty:
+    with httprettify():
         index_url = 'http://www.example.com/'
         page1_url = index_url + '1'
         page2_url = index_url + '2'
@@ -108,7 +108,7 @@ def test_Navigator__identity_map():
         page1_links = {'next': {'href': page2_url}}
         page2_links = {'next': {'href': page3_url}}
         page3_links = {'next': {'href': page1_url}}
-        
+
         register_hal(index_url, index_links)
         register_hal(page1_url, page1_links)
         register_hal(page2_url, page2_links)
