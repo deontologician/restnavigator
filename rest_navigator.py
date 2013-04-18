@@ -115,3 +115,17 @@ class Navigator(object):
     @autofetch
     def __call__(self):
         return self.state.copy()
+
+    def __iter__(self):
+        '''Part of iteration protocol'''
+        last = self
+        while True:
+            current = last.next()
+            yield current
+            last = current
+
+    def next(self):
+        try:
+            return self['next']
+        except KeyError:
+            raise StopIteration()

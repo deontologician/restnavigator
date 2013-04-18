@@ -122,3 +122,26 @@ def test_Navigator__identity_map():
         assert page1 is page4
         assert page2 is page4['next']
         assert page3 is page4['next']['next']
+
+def test_Navigator__iteration():
+    with httprettify():
+        index_url = 'http://www.example.com/'
+        index_links = {'next': {'href': index_url + '1'}}
+        register_hal(index_url, index_links)
+        for i in xrange(1, 11):
+            page_url = index_url + str(i)
+            if i < 10:
+                page_links = {'next': {'href': index_url + str(i + 1)}}
+            else:
+                page_links = {}
+            print(page_url, page_links)
+            register_hal(page_url, page_links)
+
+        N = RN.Navigator(index_url)
+        captured = []
+        for i, nav in enumerate(N, start=1):
+            print('{}: {}'.format(i, nav.url))
+            assert isinstance(nav, RN.Navigator)
+            assert nav.url == index_url + str(i)
+            captured.append(nav)
+        assert len(captured) == 10
