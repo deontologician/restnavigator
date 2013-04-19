@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import copy
 from functools import wraps
+from weakref import WeakValueDictionary
 
 import requests
 
@@ -59,7 +60,7 @@ class Navigator(object):
 
         self._links = None
         #This is the identity map shared by all descendents of this Navigator
-        self._id_map = {self.root: self}
+        self._id_map = WeakValueDictionary({self.root: self})
 
     def __repr__(self):
         return "Navigator('{.name}')".format(self)
