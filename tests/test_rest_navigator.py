@@ -6,7 +6,10 @@ from httpretty import HTTPretty, httprettified
 import json
 import mock
 import pytest
+import re
 from contextlib import contextmanager
+
+import uritemplate
 
 import rest_navigator as RN
 
@@ -24,17 +27,25 @@ def httprettify():
         HTTPretty.disable()
 
 
-def register_hal(url, links=None, state=None, title=None, method='GET'):
+def register_hal(url, links=None, state=None, title=None, method='GET', headers=None):
     '''Convenience function that registers a hal document at a given address'''
-    links = links.copy() if links is not None else {}
-    state = state.copy() if state is not None else {}
-    links.update({'self': {'href': url}})
-    if title is not None:
-        links['self']['title'] = title
-    state.update({'_links': links})
+
+    def body_callback(_meth, req_url, req_headers):
+        '''This is either registered for dynamic urls or is called for a static url'''
+        _links = links.copy() if links is not None else {}
+        _state = state.copy() if state is not None else {}
+        resp_headers = headers.copy() if headers is not None else {}
+        resp_headers.update({'content_type': 'application/hal+json',
+                             'server': 'HTTPretty 0.6.0'})
+        print('Server got: {}'.format(req_url))
+        _links.update({'self': {'href': req_url}})
+        if title is not None:
+            _links['self']['title'] = title
+        _state.update({'_links': _links})
+        return 200, resp_headers, json.dumps(_state)
+
     HTTPretty.register_uri(method=method,
-                           body=json.dumps(state),
-                           content_type='application/hal+json',
+                           body=body_callback,
                            uri=url)
 
 
@@ -145,3 +156,33 @@ def test_Navigator__iteration():
             assert nav.url == index_url + str(i)
             captured.append(nav)
         assert len(captured) == 10
+
+def test_Navigator__dont_get_template_links():
+    with httprettify():
+        index_url = 'http://www.example.com/'
+        index_regex = re.compile(index_url + '.*')
+        template_href = 'http://www.example.com/{?max,page}'
+        index_links = {'first': {
+            'href': template_href,
+            'templated': True
+        }}
+        register_hal(index_regex, index_links)
+        
+        N = RN.Navigator(index_url)
+        with pytest.raises(RN.AmbiguousNavigationError):
+            N['first']()
+
+def test_Navigator__complete_template_links():
+    with httprettify():
+        index_url = 'http://www.example.com/'
+        index_regex = re.compile(index_url + '.*')
+        template_href = 'http://www.example.com/{?max,page}'
+        index_links = {'first': {
+            'href': template_href,
+            'templated': True
+        }}
+        register_hal(index_regex, index_links)
+        
+        N = RN.Navigator(index_url)
+        expanded_nav =  N['first', 'page':0, 'max':1]
+        assert expanded_nav.url == uritemplate.expand(template_href, max=1, page=0)

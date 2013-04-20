@@ -10,5 +10,6 @@ setup(
     url="https://www.github.com/deontologician/rest_navigator",
     install_requires=["requests==1.1.0",
                       "uritemplate==0.5.2",
+                      "httpretty==0.6.0"
                      ]
 )
