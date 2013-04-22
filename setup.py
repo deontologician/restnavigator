@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="rest_navigator",
@@ -6,7 +6,7 @@ setup(
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     license="MIT",
-    py_modules=['rest_navigator'],
+    packages=find_packages(),
     url="https://www.github.com/deontologician/rest_navigator",
     install_requires=["requests==1.1.0",
                       "uritemplate==0.5.2",

@@ -4,52 +4,20 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import copy
-from functools import wraps
 from weakref import WeakValueDictionary
 
 import requests
+import uritemplate
+
+import exc
+import utils
 
 
-def autofetch(fn):
-    @wraps(fn)
-    def wrapped(self, *args, **kwargs):
-        if self.response is None:
-            self.GET()
-        return fn(self, *args, **kwargs)
-    return wrapped
-
-
-class WileECoyoteException(ValueError):
-    '''Raised when a url has a bad scheme'''
-    pass
-
-
-class ZachMorrisException(ValueError):
-    '''Raised when a url has too many schemes'''
-    pass
-
-
-def fix_scheme(url):
-    '''Appends the http:// scheme if necessary to a url. Fails if a scheme
-    other than http is used'''
-    splitted = url.split('://')
-    if len(splitted) == 2:
-        if splitted[0] == 'http':
-            return url
-        else:
-            raise WileECoyoteException(
-                'Bad scheme! Got: {}, expected http'.format(splitted[0]))
-    elif len(splitted) == 1:
-        return 'http://' + url
-    else:
-        raise ZachMorrisException('Too many schemes!')
-
-
-class Navigator(object):
+class HALNavigator(object):
     '''The main navigation entity'''
 
     def __init__(self, root, name=None):
-        self.root = fix_scheme(root)
+        self.root = utils.fix_scheme(root)
         self.name = root if name is None else name
         self.url = self.root
         self.profile = None
@@ -57,29 +25,36 @@ class Navigator(object):
         self.type = 'application/hal+json'
         self.response = None
         self.state = None
+        self.templated = False
 
         self._links = None
-        #This is the identity map shared by all descendents of this Navigator
+        #This is the identity map shared by all descendents of this HALNavigator
         self._id_map = WeakValueDictionary({self.root: self})
 
     def __repr__(self):
-        return "Navigator('{.name}')".format(self)
+        return "HALNavigator('{.name}')".format(self)
 
     @property
-    @autofetch
+    @utils.autofetch
     def links(self):
         r'''Returns links from the current resource'''
         return self._links
 
     def GET(self):
         r'''Handles GET requests for a resource'''
+        if self.templated:
+            raise exc.AmbiguousNavigationError(
+                '''This is a templated Navigator. You must provide values for the template
+                parameters before fetching the resource or else explicitly null
+                them out with the syntax: N[:]''')
         self.response = requests.get(self.url)
         body = self.response.json()
         self._links = {rel: self._copy(url=link['href'],
                                        rel=rel,
                                        title=link.get('title'),
                                        type=link.get('type'),
-                                       profile=link.get('profile')
+                                       profile=link.get('profile'),
+                                       templated=link.get('templated'),
                                    )
                        for rel, link in body.get('_links', {}).iteritems()
                        if rel != 'self'}
@@ -90,7 +65,7 @@ class Navigator(object):
         self.state.pop('_embedded', None)
 
     def _copy(self, **kwargs):
-        '''Creates a shallow copy of the Navigator that extra attributes can be set on.
+        '''Creates a shallow copy of the HALNavigator that extra attributes can be set on.
         If the object is already in the identity map, that object is returned instead
         '''
         if 'url' in kwargs and kwargs['url'] in self._id_map:
@@ -105,15 +80,10 @@ class Navigator(object):
                 setattr(cp, attr, val)
         return cp
 
-    @autofetch
-    def __getitem__(self, key):
-        r'''Subselector for a Navigator'''
-        return self._links[key]
-
     def __eq__(self, other):
         return self.url == other.url and self.name == other.name
 
-    @autofetch
+    @utils.autofetch
     def __call__(self):
         return self.state.copy()
 
@@ -130,3 +100,47 @@ class Navigator(object):
             return self['next']
         except KeyError:
             raise StopIteration()
+
+    def expand(self, **kwargs):
+        '''Expand template args in a templated Navigator. Returns a non-templated
+        HALNavigator'''
+        if not self.templated:
+            raise TypeError("This Navigator isn't templated! You can't expand it.")
+        for k,v in kwargs.iteritems():
+            if v == 0:
+                kwargs[k] = '0'  # uritemplate expands 0's to empty string
+        return self._copy(url=uritemplate.expand(self.url, kwargs))
+
+
+    def __getitem__(self, getitem_args):
+        r'''Subselector for a HALNavigator'''
+        args, kwargs = utils.normalize_getitem_args(getitem_args)
+        if None in kwargs and kwargs[None] == None:
+            slug = True
+            kwargs.pop(None)
+        else:
+            slug = False
+        if Ellipsis in args:
+            ellipsis = True
+            args.remove(Ellipsis)
+        else:
+            ellipsis = False
+        if not self.templated and not args and kwargs:
+            raise ValueError('This Navigator is not templated, but you are '
+                             'nevertheless trying to expand it.')
+        if len(args) == 0 and 
+            # only one arg, and it's a slice
+            return self.expand(**utils.slice_process(args))
+        else:
+            # string arg, which should be a rel-type
+            if self.response is None:
+                self.GET()
+            return self._links[args]
+        if isinstance(args, tuple)
+            if isinstance(args[0], slice):
+                return self.expand(**kwargs)
+            else:
+                if self.response is None:
+                    self.GET()
+                expanded_url = 
+                return self._copy()

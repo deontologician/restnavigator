@@ -12,14 +12,18 @@ generality will come later.
 
 # How to use it
 
-To begin interacting with any api, you've got to create a Navigator that points
-to the api root. As an example, we'll connect to the haltalk api.
+To begin interacting with a restful api, you've got to create a HALNavigator
+that points to the api root. Ideally, in a restful API, the root URL is the only
+URL that needs to be hardcoded in your application. All other URLs are obtained
+from the api responses themselves.
+
+As an example, we'll connect to the haltalk api.
 
 ```python
->>> from rest_navigator import Navigator
->>> N = Navigator('http://haltalk.herokuapp.com/', name="haltalk")
+>>> from rest_navigator import HALNavigator
+>>> N = HALNavigator('http://haltalk.herokuapp.com/', name="haltalk")
 >>> N
-Navigator('haltalk')
+HALNavigator('haltalk')
 ```
 
 Usually, with the index, the data isn't too important, rather the links it gives
@@ -27,16 +31,18 @@ you are important. Let's look at those:
 
 ```python
 >>> N.links()
-{'ht:users': Navigator('haltalk')['ht:users'],
- 'ht:signup': Navigator('haltalk')['ht:signup'],
- 'ht:me': Navigator('haltalk')['ht:me']*,
- 'ht:latest-posts': Navigator('haltalk')['ht:latest-posts']
+{'ht:users': HALNavigator('haltalk')['ht:users'],
+ 'ht:signup': HALNavigator('haltalk')['ht:signup'],
+ 'ht:me': HALNavigator('haltalk')['ht:me']*,
+ 'ht:latest-posts': HALNavigator('haltalk')['ht:latest-posts']
 }
 ```
 
 Here we can see that the links are organized by their relation type (the key),
-and each key corresponds to a new Navigator that represents some other
-resource.
+and each key corresponds to a new HALNavigator that represents some other
+resource. Relation types are extremely important in restful apis: we need them
+to be able to be able to mechanistically determine what a link means in relation
+to the current resource.
 
 In addition, the root has some state associated with it which you can get in two
 different ways:
@@ -60,7 +66,7 @@ different ways:
  u'welcome': u'Welcome to a haltalk server.'}
 ```
 
-Calling a Navigator will execute a GET request against the resource and returns
+Calling a HALNavigator will execute a GET request against the resource and returns
 its value (which it will cache). The only difference is that repeated calls of
 the navigator will get copies of the state dictionary, whereas the .state
 attribute is the same dictionary (so modify it at your own peril!)
@@ -70,7 +76,7 @@ that, so let's look at the documentation. The `ht:signup` link looks promising,
 let's check that:
 
 ```python
->>> N.docsfor('ht:signup')  # a browser opens http://haltalk.herokuapp.com/rels/signup
+>>> N.docsfor('ht:signup') # a browser opens http://haltalk.herokuapp.com/rels/signup
 ```
 
 What? Popping up a browser from a library call? Yes, that's how rest_navigator
@@ -81,8 +87,8 @@ the api. So popping up a browser serves two purposes:
   1. It allows easy access to the documentation at the time when you most need
   it: when you're mucking about in the command line trying to figure out how to
   interact with the api.
-  2. It reminds you not to try to automatically dereference the rel documentation
-  and parse it in your application.
+  2. It reminds you not to try to automatically dereference the rel
+  documentation and parse it in your application.
 
 If you need a more robust way to browse the api and the documentation,
 [HAL Browser](https://github.com/mikekelly/hal-browser) is probably your best
@@ -103,8 +109,8 @@ sign up. So let's actually sign up:
 If the user name had already been in use, a 400 would have been returned from
 the haltalk api. Using the Zen of Python guideline "Errors should never pass
 silently." an exception would have been raised on a 400 or 500 status code. You
-can squelch this exception and just have the post call return a Navigator with a
-400/500 status code if you want:
+can squelch this exception and just have the post call return a HALNavigator
+with a 400/500 status code if you want:
 
 ```python
 >>> errNav = N['ht:signup'].post({
@@ -113,7 +119,7 @@ can squelch this exception and just have the post call return a Navigator with a
 ...    'real_name': 'Fred Wilson'
 ... }, raise_exc=False)
 >>> errNav
-Navigator('haltalk')['ht:signup']#400!
+HALNavigator('haltalk')['ht:signup']#400!
 >>> errNav.status
 (400, 'Bad Request')
 >>> errNav.state
@@ -126,7 +132,7 @@ character after it. You can also tell by the .parameters attribute:
 
 ```python
 >>> N['ht:me']
-Navigator('haltalk')['ht:me']*
+HALNavigator('haltalk')['ht:me']*
 >>> N['ht:me'].parameters
 set(['name'])
 ```
@@ -141,7 +147,7 @@ one over the other for aesthetic reasons:
 '/users/{name}'
 >>> Nme_v1 = N['ht:me', 'name':'fred23']
 >>> Nme_v1
-Navigator('haltalk')['ht:me', 'name':'fred23']
+HALNavigator('haltalk')['ht:me', 'name':'fred23']
 >>> Nme_v2 = N['ht:me'].expand(name='fred23')  # equivalent to Nme_v1
 >>> Nme_v2()
 {'bio': None,

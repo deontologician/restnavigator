@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 import uritemplate
 
-import rest_navigator as RN
+import rest_navigator.halnav as HN
 
 @contextmanager
 def httprettify():
@@ -49,67 +49,59 @@ def register_hal(url, links=None, state=None, title=None, method='GET', headers=
                            uri=url)
 
 
-def test_fix_scheme():
-    assert RN.fix_scheme('http://www.example.com') == 'http://www.example.com'
-    assert RN.fix_scheme('www.example.com') == 'http://www.example.com'
-    with pytest.raises(ValueError):
-        RN.fix_scheme('ftp://www.example.com')
-    with pytest.raises(ValueError):
-        RN.fix_scheme('http://http://www.example.com')
+
+def test_HALNavigator__creation():
+    N = HN.HALNavigator('http://www.example.com')
+    assert type(N) == HN.HALNavigator
+    assert repr(N) == "HALNavigator('http://www.example.com')"
 
 
-def test_Navigator__creation():
-    N = RN.Navigator('http://www.example.com')
-    assert type(N) == RN.Navigator
-    assert repr(N) == "Navigator('http://www.example.com')"
+def test_HALNavigator__optional_name():
+    N = HN.HALNavigator('http://www.example.com', name='exampleAPI')
+    assert repr(N) == "HALNavigator('exampleAPI')"
 
 
-def test_Navigator__optional_name():
-    N = RN.Navigator('http://www.example.com', name='exampleAPI')
-    assert repr(N) == "Navigator('exampleAPI')"
-
-
-def test_Navigator__links():
+def test_HALNavigator__links():
     with httprettify():
         register_hal('http://www.example.com/',
                      links={'ht:users': {'href': 'http://www.example.com/users'}})
-        N = RN.Navigator('http://www.example.com')
+        N = HN.HALNavigator('http://www.example.com')
         assert N.links == {'ht:users':
-                           RN.Navigator('http://www.example.com')['ht:users']}
+                           HN.HALNavigator('http://www.example.com')['ht:users']}
 
-def test_Navigator__call():
+def test_HALNavigator__call():
     with httprettify():
         url = 'http://www.example.com/index'
         server_state = dict(some_attribute='some value')
         register_hal(url=url, state=server_state, title='Example Title')
 
-        N = RN.Navigator(url)
+        N = HN.HALNavigator(url)
         assert N.state is None
         assert N() == server_state
         assert N.state == N()
         assert N.state is not N()
         assert N() is not N()
 
-def test_Navigator__init_accept_schemaless():
+def test_HALNavigator__init_accept_schemaless():
     url = 'www.example.com'
-    N = RN.Navigator(url)
+    N = HN.HALNavigator(url)
     assert N.url == 'http://' + url
     url2 = 'http://example.com'
-    N2 = RN.Navigator(url2)
+    N2 = HN.HALNavigator(url2)
     assert N2.url == url2
 
-def test_Navigator__getitem_self_link():
+def test_HALNavigator__getitem_self_link():
     with httprettify():
         url = 'http://www.example.com/index'
         title = 'Some kinda title'
         register_hal(url, title=title)
 
-        N = RN.Navigator(url)
+        N = HN.HALNavigator(url)
         N()  # fetch it
         assert N.title == title
 
 
-def test_Navigator__identity_map():
+def test_HALNavigator__identity_map():
     with httprettify():
         index_url = 'http://www.example.com/'
         page1_url = index_url + '1'
@@ -125,7 +117,7 @@ def test_Navigator__identity_map():
         register_hal(page2_url, page2_links)
         register_hal(page3_url, page3_links)
 
-        N = RN.Navigator(index_url)
+        N = HN.HALNavigator(index_url)
         page1 = N['first']
         page2 = N['first']['next']
         page3 = N['first']['next']['next']
@@ -134,7 +126,7 @@ def test_Navigator__identity_map():
         assert page2 is page4['next']
         assert page3 is page4['next']['next']
 
-def test_Navigator__iteration():
+def test_HALNavigator__iteration():
     with httprettify():
         index_url = 'http://www.example.com/'
         index_links = {'next': {'href': index_url + '1'}}
@@ -148,16 +140,16 @@ def test_Navigator__iteration():
             print(page_url, page_links)
             register_hal(page_url, page_links)
 
-        N = RN.Navigator(index_url)
+        N = HN.HALNavigator(index_url)
         captured = []
         for i, nav in enumerate(N, start=1):
             print('{}: {}'.format(i, nav.url))
-            assert isinstance(nav, RN.Navigator)
+            assert isinstance(nav, HN.HALNavigator)
             assert nav.url == index_url + str(i)
             captured.append(nav)
         assert len(captured) == 10
 
-def test_Navigator__dont_get_template_links():
+def test_HALNavigator__dont_get_template_links():
     with httprettify():
         index_url = 'http://www.example.com/'
         index_regex = re.compile(index_url + '.*')
@@ -168,11 +160,19 @@ def test_Navigator__dont_get_template_links():
         }}
         register_hal(index_regex, index_links)
         
-        N = RN.Navigator(index_url)
-        with pytest.raises(RN.AmbiguousNavigationError):
-            N['first']()
+        N = HN.HALNavigator(index_url)
+        with pytest.raises(ValueError):
+            N['page':0]  # N is not templated
+        with pytest.raises(HN.exc.AmbiguousNavigationError):
+            N['first']() # N['first'] is templated
+        assert N['first'].templated
+        assert N['first']['page':0].url == 'http://www.example.com/?page=0'
+        with pytest.raises(ValueError):
+            N['first'][:'page':0]
+        with pytest.raises(ValueError):
+            N['first'][::'page']
 
-def test_Navigator__complete_template_links():
+def test_HALNavigator__complete_template_links():
     with httprettify():
         index_url = 'http://www.example.com/'
         index_regex = re.compile(index_url + '.*')
@@ -183,6 +183,31 @@ def test_Navigator__complete_template_links():
         }}
         register_hal(index_regex, index_links)
         
-        N = RN.Navigator(index_url)
+        N = HN.HALNavigator(index_url)
         expanded_nav =  N['first', 'page':0, 'max':1]
         assert expanded_nav.url == uritemplate.expand(template_href, max=1, page=0)
+        assert N['first'].expand(page=0, max=1) == expanded_nav
+        assert N['first']['page':0] == uritemplate.expand(template_href, page=0)
+        assert N['first',:] == uritemplate.expand(template_href)
+        
+        assert N['page': 0]
+        assert N[...]
+        assert N['page': 0, ...]
+        assert N[:]
+        assert N['page':0, :]
+        with pytest.raises(SyntaxError):
+            N[:,...]
+        with pytest.raises(SyntaxError)
+            N['page':0, :, ...]
+        assert N['first']
+        assert N['first', 'page': 0]
+        assert N['first', ...]
+        assert N['first', 'page':0, ...]
+        assert N['first', :]
+        assert N['first', 'page':0, :]
+        with pytest.raises(SyntaxError):
+            assert N['first', :, ...]
+        with pytest.raises(SyntaxError):
+            assert N['first', 'page': 0, :, ...]
+
+
