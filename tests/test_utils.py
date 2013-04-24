@@ -16,12 +16,18 @@ def test_fix_scheme():
 
 
 def test_normalize_getitem_args():
-    assert RNU.normalize_getitem_args('foo') == (['foo'], {})
-    assert RNU.normalize_getitem_args(slice('bar', 'baz')) == ([], {'bar': 'baz'})
-    assert (RNU.normalize_getitem_args(('gax', slice('qux', 'foo')))
-            == (['gax'], {'qux': 'foo'}))
-    assert (RNU.normalize_getitem_args((slice('foo', 'bar'), slice('baz', 'qux')))
-            == ([], {'foo': 'bar', 'baz': 'qux'}))
+    nga = RNU.normalize_getitem_args
+    assert nga('foo') == (['foo'], {}, False, False)
+    assert (nga(slice('bar', 'baz'))
+            == ([], {'bar': 'baz'}, False, False))
+    assert (nga(('gax', slice('qux', 'foo')))
+            == (['gax'], {'qux': 'foo'}, False, False))
+    assert (nga((slice('foo', 'bar'), slice('baz', 'qux')))
+            == ([], {'foo': 'bar', 'baz': 'qux'}, False, False))
+    assert nga(slice(None)) == ([], {}, True, False)
+    assert nga((Ellipsis, slice(None))) == ([], {}, True, True)
+    assert (nga(('gax', slice('foo', 'bar'), Ellipsis))
+            == (['gax'], {'foo':'bar'}, False, True))
 
 
 def test_slice_process():
@@ -29,5 +35,3 @@ def test_slice_process():
     assert RNU.slice_process(slice('a', None, None)) == {'a': ''}
     with pytest.raises(ValueError):
         RNU.slice_process(slice(None,'b', None))
-    with pytest.raises(ValueError):
-        RNU.slice_process(slice(None, None, None))

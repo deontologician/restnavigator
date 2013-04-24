@@ -1,6 +1,5 @@
 from __future__ import print_function
 from __future__ import unicode_literals
-
 from functools import wraps
 
 import exc
@@ -41,10 +40,10 @@ def autofetch(fn):
     '''
 
     @wraps(fn)
-    def wrapped(self, *args, **kwargs):
+    def wrapped(self, *args, **qargs):
         if self.response is None:
             self.GET()
-        return fn(self, *args, **kwargs)
+        return fn(self, *args, **qargs)
     return wrapped
 
 
@@ -54,17 +53,23 @@ def normalize_getitem_args(args):
     '''
     if not isinstance(args, tuple):
         args = args,
-    kwargs = {}
-    slugs = []
+    qargs = {}
+    rels = []
+    ellipsis = False
+    slug = False
     for arg in args:
         if isinstance(arg, basestring):
-            slugs.append(arg)
+            rels.append(arg)
         elif isinstance(arg, slice):
-            kwargs.update(slice_process(arg))
-        elif isinstance(arg, Ellipsis):
-            slugs.append(Ellipsis)
+            slc = slice_process(arg)
+            if slc == {None:None}:
+                slug = True
+            else:
+                qargs.update(slc)
+        elif isinstance(arg, type(Ellipsis)):
+            ellipsis = True
         else:
             raise TypeError(
                 'Brackets cannot contain objects of type {.__name__}'
                 .format(type(arg)))
-    return slugs, kwargs
+    return rels, qargs, slug, ellipsis
