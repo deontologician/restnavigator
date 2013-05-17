@@ -291,3 +291,35 @@ def test_HALNavigator__getitem_gauntlet():
             assert N['first', :, ...]
         with pytest.raises(SyntaxError):
             assert N['first', 'page': 0, :, ...]
+
+def test_HALNavigator_bad_getitem_objs():
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        index_regex = re.compile(index_uri + '.*')
+        template_href = 'http://www.example.com/{?max,page}'
+        index_links = {'first': {
+            'href': template_href,
+            'templated': True
+        }}
+        register_hal(index_regex, index_links)
+        
+        N = HN.HALNavigator(index_uri)
+        with pytest.raises(TypeError):
+            N[{'set'}]
+        with pytest.raises(TypeError):
+            N[12]
+
+def test_HALNavigator_double_dereference():
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        first_uri = index_uri + '1'
+        second_uri = index_uri + '2'
+        index_links = {'first': {'href': first_uri}}
+        first_links = {'second': {'href': second_uri}}
+        second_links = {}
+        register_hal(index_uri, index_links)
+        register_hal(first_uri, first_links)
+        register_hal(second_uri, second_links)
+        
+        N = HN.HALNavigator(index_uri)
+        assert N['first', 'second'].uri == second_uri

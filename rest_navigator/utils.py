@@ -34,19 +34,6 @@ def slice_process(slc):
     raise ValueError('Unsupported slice syntax')
 
 
-def autofetch(fn):
-    '''A decorator used by Navigators that fetches the resource if necessary prior
-    to calling the function
-    '''
-
-    @wraps(fn)
-    def wrapped(self, *args, **qargs):
-        if self.response is None:
-            self.GET()
-        return fn(self, *args, **qargs)
-    return wrapped
-
-
 def normalize_getitem_args(args):
     '''Turns the arguments to __getitem__ magic methods into a uniform list of
     dictionaries and strings (and Ellipsis)
