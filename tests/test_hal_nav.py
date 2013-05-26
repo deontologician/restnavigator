@@ -29,8 +29,13 @@ def httprettify():
         HTTPretty.disable()
 
 
-def register_hal(
-        uri, links=None, state=None, title=None, method='GET', headers=None):
+def register_hal(uri,
+                 links=None,
+                 state=None,
+                 title=None,
+                 method='GET',
+                 headers=None,
+                 status=200):
     '''Convenience function that registers a hal document at a given address'''
 
     def body_callback(_meth, req_uri, req_headers):
@@ -50,7 +55,7 @@ def register_hal(
         if title is not None:
             _links['self']['title'] = title
         _state.update({'_links': _links})
-        return 200, resp_headers, json.dumps(_state)
+        return status, resp_headers, json.dumps(_state)
 
     HTTPretty.register_uri(method=method,
                            body=body_callback,
@@ -337,3 +342,21 @@ def test_HALNavigator__parameters():
 
         N = HN.HALNavigator(index_uri)
         assert N['test'].parameters == set(['a', 'b', 'q', 'r', 'domain'])
+
+
+@pytest.mark.parametrize(('status', 'reason'), [
+    (200, 'OK'),
+    (201, 'Created'),
+    (400, 'Bad Request'),
+    (500, 'Internal Server Error'),
+])
+def test_HALNavigator__status(status, reason):
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        register_hal(index_uri, status=status)
+
+        N = HN.HALNavigator(index_uri)
+        assert N.status is None
+        N()
+        assert N.status == (status, reason)
+        # TODO: Add tests for POST/PUT/DELETE/PATCH status codes

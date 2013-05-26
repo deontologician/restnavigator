@@ -25,6 +25,7 @@ def autofetch(fn):
     return wrapped
 
 
+# TODO: Add __delitem__ to delete a linked resource
 class HALNavigator(object):
     '''The main navigation entity'''
 
@@ -54,6 +55,11 @@ class HALNavigator(object):
     def links(self):
         r'''Returns links from the current resource'''
         return self._links
+
+    @property
+    def status(self):
+        if self.response is not None:
+            return (self.response.status_code, self.response.reason)
 
     def _GET(self):
         r'''Handles GET requests for a resource'''
