@@ -14,9 +14,8 @@ from rest_navigator import exc, utils
 
 
 def autofetch(fn):
-    '''A decorator used by Navigators that fetches the resource if necessary 
-    prior to calling the function
-    '''
+    '''A decorator used by Navigators that fetches the resource if necessary
+    prior to calling the function '''
 
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
