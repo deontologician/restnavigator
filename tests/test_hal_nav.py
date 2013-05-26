@@ -250,7 +250,8 @@ def test_HALNavigator__getitem_gauntlet():
         assert N['first'].expand(page=0, max=1) == expanded_nav
         assert N['first']['page': 0].uri == uritemplate\
             .expand(template_href, {'page': '0'})
-        assert N['first', :].uri == uritemplate.expand(template_href, variables={})
+        assert N['first', :].uri == uritemplate.expand(
+            template_href, variables={})
 
         first_page_expanded = uritemplate.expand(template_href, {'page': '0'})
         first_null_expanded = uritemplate.expand(template_href, {})
@@ -292,6 +293,7 @@ def test_HALNavigator__getitem_gauntlet():
         with pytest.raises(SyntaxError):
             assert N['first', 'page': 0, :, ...]
 
+
 def test_HALNavigator__bad_getitem_objs():
     with httprettify():
         index_uri = 'http://www.example.com/'
@@ -321,6 +323,17 @@ def test_HALNavigator__double_dereference():
         register_hal(index_uri, index_links)
         register_hal(first_uri, first_links)
         register_hal(second_uri, second_links)
-        
+
         N = HN.HALNavigator(index_uri)
         assert N['first', 'second'].uri == second_uri
+
+
+def test_HALNavigator__parameters():
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        index_links = {'test': {'href': 'http://{.domain*}{/a,b}{?q,r}',
+                                'templated': True}}
+        register_hal(index_uri, index_links)
+
+        N = HN.HALNavigator(index_uri)
+        assert N['test'].parameters == set(['a', 'b', 'q', 'r', 'domain'])

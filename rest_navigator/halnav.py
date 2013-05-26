@@ -39,8 +39,8 @@ class HALNavigator(object):
         self.state = None
         self.template_uri = None
         self.template_args = None
+        self.parameters = None
         self.templated = False
-
         self._links = None
         # This is the identity map shared by all descendents of this
         # HALNavigator
@@ -78,6 +78,7 @@ class HALNavigator(object):
                             )
             if templated:
                 cp.uri = None
+                cp.parameters = uritemplate.variables(cp.template_uri)
             else:
                 cp.template_uri = None
             return cp
