@@ -61,7 +61,7 @@ class HALNavigator(object):
         if self.response is not None:
             return (self.response.status_code, self.response.reason)
 
-    def _GET(self):
+    def _GET(self, raise_exc=True):
         r'''Handles GET requests for a resource'''
         if self.templated:
             raise exc.AmbiguousNavigationError(
@@ -98,6 +98,8 @@ class HALNavigator(object):
                       if k not in ('_links', '_embedded')}
         self.state.pop('_links', None)
         self.state.pop('_embedded', None)
+        if raise_exc and not self.response:
+            raise HALNavigatorError(msg=self.status, nav=self)
 
     def _copy(self, **kwargs):
         '''Creates a shallow copy of the HALNavigator that extra attributes can
@@ -124,8 +126,14 @@ class HALNavigator(object):
     def __eq__(self, other):
         return self.uri == other.uri and self.name == other.name
 
-    @autofetch
-    def __call__(self):
+    def __call__(self, raise_exc=True):
+        if self.response is None:
+            self._GET(raise_exc=raise_exc)
+        return self.state.copy()
+
+    def fetch(self, raise_exc=True):
+        '''Like __call__, but doesn't cache, always makes the request'''
+        self._GET(raise_exc=raise_exc)
         return self.state.copy()
 
     def __iter__(self):
@@ -135,6 +143,13 @@ class HALNavigator(object):
             current = last.next()
             yield current
             last = current
+
+    def __nonzero__(self):
+        # we override normal exception throwing since the user seems interested
+        # in the boolean value
+        if self.response is None:
+            self._GET(raise_exc=False)
+        return bool(self.response)
 
     def next(self):
         try:
@@ -192,3 +207,13 @@ class HALNavigator(object):
         if qargs or slug:
             n = n.expand(_keep_templated=ellipsis, **qargs)
         return n
+
+
+class HALNavigatorError(Exception):
+    '''Raised when a response is an error
+
+    Has all of the attributes of a normal HALNavigator. The error body can be
+    returned by examining response.body '''
+
+    def __init__(self, *args, **kwargs):
+        self.nav = kwargs.pop('nav', None)

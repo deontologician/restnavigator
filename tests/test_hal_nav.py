@@ -6,6 +6,7 @@ from httpretty import HTTPretty
 import json
 import pytest
 import re
+import requests
 from contextlib import contextmanager
 
 import uritemplate
@@ -29,7 +30,7 @@ def httprettify():
         HTTPretty.disable()
 
 
-def register_hal(uri,
+def register_hal(uri='http://www.example.com/',
                  links=None,
                  state=None,
                  title=None,
@@ -336,19 +337,18 @@ def test_HALNavigator__double_dereference():
 def test_HALNavigator__parameters():
     with httprettify():
         index_uri = 'http://www.example.com/'
-        index_links = {'test': {'href': 'http://{.domain*}{/a,b}{?q,r}',
-                                'templated': True}}
+        index_links = {'about': {'href': 'http://{.domain*}{/a,b}{?q,r}',
+                                 'templated': True}}
         register_hal(index_uri, index_links)
 
         N = HN.HALNavigator(index_uri)
-        assert N['test'].parameters == set(['a', 'b', 'q', 'r', 'domain'])
+        assert N['about'].parameters == set(['a', 'b', 'q', 'r', 'domain'])
 
 
 @pytest.mark.parametrize(('status', 'reason'), [
     (200, 'OK'),
     (201, 'Created'),
-    (400, 'Bad Request'),
-    (500, 'Internal Server Error'),
+    (303, 'See Other'),
 ])
 def test_HALNavigator__status(status, reason):
     with httprettify():
@@ -360,3 +360,48 @@ def test_HALNavigator__status(status, reason):
         N()
         assert N.status == (status, reason)
         # TODO: Add tests for POST/PUT/DELETE/PATCH status codes
+
+
+@pytest.mark.parametrize(('status', 'raise_exc'), [
+    (400, False),
+    (500, False),
+    (404, True),
+    (503, True),
+])
+def test_HALNavigator__raise_exc(status, raise_exc):
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        next_uri = index_uri + 'next'
+        index_links = {'next': {'href': next_uri}}
+        register_hal(index_uri, index_links)
+        register_hal(next_uri, status=status)
+
+        N = HN.HALNavigator('http://www.example.com/')
+        if raise_exc:
+            with pytest.raises(HN.HALNavigatorError):
+                N['next']()
+            try:
+                N['next'].fetch()
+            except HN.HALNavigatorError as hn:
+                assert hn.nav.status[0] == status
+        else:
+            N['next'](raise_exc=False)
+            assert N['next'].status[0] == status
+
+
+@pytest.mark.parametrize(('status', 'boolean'), [
+    (200, True),
+    (300, True),
+    (400, False),
+    (500, False),
+])
+def test_HALNavigator__boolean(status, boolean):
+    with httprettify():
+        register_hal(status=status)
+
+        N = HN.HALNavigator('http://www.example.com/')
+        if boolean:
+            assert N
+        else:
+            assert not N
+
