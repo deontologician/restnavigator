@@ -23,7 +23,7 @@ As an example, we'll connect to the haltalk api.
 >>> from rest_navigator import HALNavigator
 >>> N = HALNavigator('http://haltalk.herokuapp.com/', name="haltalk")
 >>> N
-HALNavigator('haltalk')
+HALNavigator:haltalk
 ```
 
 Usually, with the index, the data isn't too important, rather the links it gives
@@ -31,10 +31,10 @@ you are important. Let's look at those:
 
 ```python
 >>> N.links()
-{'ht:users': HALNavigator('haltalk')['ht:users'],
- 'ht:signup': HALNavigator('haltalk')['ht:signup'],
- 'ht:me': HALNavigator('haltalk')['ht:me']*,
- 'ht:latest-posts': HALNavigator('haltalk')['ht:latest-posts']
+{'ht:users': [HALNavigator(haltalk.users)],
+ 'ht:signup': [HALNavigator(haltalk.signup)],
+ 'ht:me': [HALNavigator(haltalk.users.{name})],
+ 'ht:latest-posts': [HALNavigator(haltalk.posts.latest)]
 }
 ```
 

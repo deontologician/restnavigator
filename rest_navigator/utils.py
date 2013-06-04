@@ -1,6 +1,10 @@
 from __future__ import print_function
 from __future__ import unicode_literals
-from functools import wraps
+
+import urlparse
+import re
+import collections
+import itertools
 
 import exc
 
@@ -60,3 +64,63 @@ def normalize_getitem_args(args):
                 'Brackets cannot contain objects of type {.__name__}'
                 .format(type(arg)))
     return rels, qargs, slug, ellipsis
+
+
+def namify(root_uri):
+    '''Turns a root uri into a less noisy representation that will probably
+    make sense in most circumstances. Used by Navigator's __repr__, but can be
+    overridden if the Navigator is created with a 'name' parameter.'''
+
+    generic_domains = set(['herokuapp', 'appspot'])
+    urlp = urlparse.urlparse(fix_scheme(root_uri))
+    formatargs = collections.defaultdict(list)
+
+    domain, tld = urlp.netloc.lower().rsplit('.', 1)
+    if '.' in domain:
+        subdomain, domain = domain.rsplit('.', 1)
+    else:
+        subdomain = ''
+
+    if subdomain != 'www':
+        formatargs['subdomain'] = subdomain.split('.')
+    if domain not in generic_domains:
+        formatargs['domain'].append(domain)
+    if len(tld) == 2:
+        formatargs['tld'].append(tld.upper())
+    elif tld != 'com':
+        formatargs['tld'].append(tld)
+
+    formatargs['path'].extend(p for p in urlp.path.lower().split('/') if p)
+    formatargs['qargs'].extend(r for q in urlp.query.split(',')
+                               for r in q.split('=') if q and r)
+
+    def capify(s):
+        '''Capitalizes the first letter of a string, but doesn't downcase the
+        reset like .title()'''
+        return s if not s else s[0].upper() + s[1:]
+
+    def piece_filter(piece):
+        if piece.lower() == 'api':
+            formatargs['api'] = True
+            return ''
+        elif re.match(r'v[\d.]+', piece):
+            formatargs['version'].extend(['.', piece])
+            return ''
+        elif 'api' in piece:
+            return piece.replace('api', 'API')
+        else:
+            return piece
+
+    chain = itertools.chain
+    imap = itertools.imap
+    pieces = imap(capify, imap(piece_filter, chain(
+        formatargs['subdomain'],
+        formatargs['domain'],
+        formatargs['tld'],
+        formatargs['path'],
+        formatargs['qargs'],
+    )))
+    return '{pieces}{api}{vrsn}'.format(pieces=''.join(pieces),
+                                        api='API' if formatargs['api'] else '',
+                                        vrsn=''.join(formatargs['version']),
+                                        )

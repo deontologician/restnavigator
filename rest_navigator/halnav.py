@@ -6,6 +6,8 @@ from __future__ import print_function
 import copy
 from weakref import WeakValueDictionary
 import functools
+import httplib
+import re
 
 import requests
 import uritemplate
@@ -31,7 +33,7 @@ class HALNavigator(object):
 
     def __init__(self, root, name=None):
         self.root = utils.fix_scheme(root)
-        self.name = root if name is None else name
+        self.name = utils.namify(root) if name is None else name
         self.uri = self.root
         self.profile = None
         self.title = None
@@ -48,7 +50,26 @@ class HALNavigator(object):
         self._id_map = WeakValueDictionary({self.root: self})
 
     def __repr__(self):
-        return "HALNavigator('{.name}')".format(self)
+        def path_clean(chunk):
+            if not chunk:
+                return chunk
+            if re.match(r'\d+', chunk):
+                return '[{}]'.format(chunk)
+            else:
+                return '.' + chunk
+        path = ''.join(path_clean(c) for c in self.relative_link.split('/'))
+        return "HALNavigator({name}{path})".format(name=self.name, path=path)
+
+    @property
+    def relative_link(self):
+        '''Returns the link of the current uri compared against the api root.
+
+        This is a good candidate for overriding in a subclass if the api you
+        are interacting uses an unconventional uri layout.'''
+        if self.uri is None:
+            return self.template_uri.replace(self.root, '/')
+        else:
+            return self.uri.replace(self.root, '/')
 
     @property
     @autofetch

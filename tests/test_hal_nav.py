@@ -6,7 +6,6 @@ from httpretty import HTTPretty
 import json
 import pytest
 import re
-import requests
 from contextlib import contextmanager
 
 import uritemplate
@@ -66,12 +65,26 @@ def register_hal(uri='http://www.example.com/',
 def test_HALNavigator__creation():
     N = HN.HALNavigator('http://www.example.com')
     assert type(N) == HN.HALNavigator
-    assert repr(N) == "HALNavigator('http://www.example.com')"
+    assert repr(N) == "HALNavigator:Example"
 
 
-def test_HALNavigator__optional_name():
-    N = HN.HALNavigator('http://www.example.com', name='exampleAPI')
-    assert repr(N) == "HALNavigator('exampleAPI')"
+def test_HALNAvigator__repr():
+    with httprettify():
+        index_uri = 'http://www.example.com/api/'
+        first_uri = 'http://www.example.com/api/first'
+        next_uri = 'http://www.example.com/api/first/next'
+        last_uri = 'http://www.example.com/api/last'
+        register_hal(index_uri, {'first': {'href': first_uri},
+                                 'next': {'href': next_uri},
+                                 'last': {'href': last_uri}})
+
+        N_1 = HN.HALNavigator(index_uri)
+        assert repr(N_1) == "HALNavigator:ExampleAPI"
+        N = HN.HALNavigator(index_uri, name='exampleAPI')
+        assert repr(N) == "HALNavigator:exampleAPI"
+        assert repr(N['first']) == "HALNavigator:exampleAPI.first"
+        assert repr(N['next']) == "HALNavigator:exampleAPI.first.next"
+        assert repr(N['last']) == "HALNavigator:exampleAPI.last"
 
 
 def test_HALNavigator__links():

@@ -5,6 +5,8 @@ import pytest
 
 import rest_navigator.utils as RNU
 
+# pylint: disable=E1101
+
 
 def test_fix_scheme():
     assert RNU.fix_scheme('http://www.example.com') == 'http://www.example.com'
@@ -35,3 +37,27 @@ def test_slice_process():
     assert RNU.slice_process(slice('a', None, None)) == {'a': ''}
     with pytest.raises(ValueError):
         RNU.slice_process(slice(None,'b', None))
+
+
+@pytest.mark.parametrize(('root_uri', 'expected'), [
+    ('http://www.example.com', 'Example'),
+    ('www.example.com', 'Example'),
+    ('www.example.com/', 'Example'),
+    ('www.example.net', 'ExampleNet'),
+    ('www.example.io', 'ExampleIO'),
+    ('api.example.com', 'ExampleAPI'),
+    ('fsgqwe.example.com', 'FsgqweExample'),
+    ('www.example.com/api', 'ExampleAPI'),
+    ('api.example.com/api/', 'ExampleAPI'),
+    ('api.example.com/api?api=', 'ExampleAPI'),
+    ('example.com/squid/api/yams', 'ExampleSquidYamsAPI'),
+    ('example.com/v2/', 'Example.v2'),
+    ('example.com/v0.0.1/', 'Example.v0.0.1'),
+    ('example.com/gov2013', 'ExampleGov2013'),  # happens to have v2013 in it
+    ('example.com?api=v2,x=3', 'ExampleX3API.v2'),
+    ('googleapis.com/language/translate/v2', 'GoogleAPIsLanguageTranslate.v2'),
+    ('haltalk.herokuapp.com/', 'Haltalk'),  # special case herokuapp.com
+    ('fooexample.appspot.com', 'Fooexample')  # special case appspot.com
+])
+def test_namify(root_uri, expected):
+    assert RNU.namify(root_uri) == expected
