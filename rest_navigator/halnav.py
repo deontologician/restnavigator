@@ -73,8 +73,8 @@ class HALNavigator(object):
     @property
     @autofetch
     def links(self):
-        r'''Returns links from the current resource'''
-        return self._links
+        r'''Returns dictionary of navigators from the current resource.'''
+        return dict(self._links)
 
     @property
     def status(self):
@@ -93,6 +93,8 @@ class HALNavigator(object):
 
         def make_nav(rel, link):
             '''Crafts the Navigators for each link'''
+            if isinstance(link, list):
+                return [make_nav(rel, l) for l in link]
             templated = link.get('templated', False)
             cp = self._copy(uri=link['href'] if not templated else None,
                             template_uri=link['href'] if templated else None,
@@ -109,9 +111,11 @@ class HALNavigator(object):
                 cp.template_uri = None
             return cp
 
-        self._links = {rel: make_nav(rel, link)
-                       for rel, link in body.get('_links', {}).iteritems()
-                       if rel != 'self'}
+        self._links = {
+            rel: make_nav(rel, links)
+            for rel, links in body.get('_links', {}).iteritems()
+            if rel != 'self'
+        }
         self.title = body.get('_links', {}).get('self', {}).get(
             'title', self.title)
         self.state = {k: v for k, v in self.response.json().iteritems()
@@ -210,9 +214,14 @@ class HALNavigator(object):
         @autofetch
         def dereference(n, rels):
             '''Helper to recursively dereference'''
+            if isinstance(n, list):
+                return n
             if len(rels) == 1:
-                ret = n.links[rels[0]]
-                return ret._copy() if ret.templated else ret
+                ret = n._links[rels[0]]
+                if isinstance(ret, list):
+                    return [r._copy() if r.templated else r for r in ret]
+                else:
+                    return ret._copy() if ret.templated else ret
             else:
                 return dereference(n[rels[0]], rels[1:])
 

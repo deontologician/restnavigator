@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 
-from httpretty import HTTPretty
+import httpretty
 import json
 import pytest
 import re
@@ -21,12 +21,12 @@ def httprettify():
     mucking up py.test's magic)
 
     '''
-    HTTPretty.reset()
-    HTTPretty.enable()
+    httpretty.HTTPretty.reset()
+    httpretty.HTTPretty.enable()
     try:
-        yield HTTPretty
+        yield httpretty.HTTPretty
     finally:
-        HTTPretty.disable()
+        httpretty.HTTPretty.disable()
 
 
 def register_hal(uri='http://www.example.com/',
@@ -35,7 +35,8 @@ def register_hal(uri='http://www.example.com/',
                  title=None,
                  method='GET',
                  headers=None,
-                 status=200):
+                 status=200,
+                 ):
     '''Convenience function that registers a hal document at a given address'''
 
     def body_callback(_meth, req_uri, req_headers):
@@ -57,34 +58,35 @@ def register_hal(uri='http://www.example.com/',
         _state.update({'_links': _links})
         return status, resp_headers, json.dumps(_state)
 
-    HTTPretty.register_uri(method=method,
-                           body=body_callback,
-                           uri=uri)
+    httpretty.HTTPretty.register_uri(method=method,
+                                     body=body_callback,
+                                     uri=uri)
 
 
 def test_HALNavigator__creation():
     N = HN.HALNavigator('http://www.example.com')
     assert type(N) == HN.HALNavigator
-    assert repr(N) == "HALNavigator:Example"
+    assert repr(N) == "HALNavigator(Example)"
 
 
 def test_HALNAvigator__repr():
     with httprettify():
         index_uri = 'http://www.example.com/api/'
         first_uri = 'http://www.example.com/api/first'
-        next_uri = 'http://www.example.com/api/first/next'
+        next_uri = 'http://www.example.com/api/foos/123/bars/234'
         last_uri = 'http://www.example.com/api/last'
         register_hal(index_uri, {'first': {'href': first_uri},
                                  'next': {'href': next_uri},
                                  'last': {'href': last_uri}})
 
         N_1 = HN.HALNavigator(index_uri)
-        assert repr(N_1) == "HALNavigator:ExampleAPI"
+        assert repr(N_1) == "HALNavigator(ExampleAPI)"
         N = HN.HALNavigator(index_uri, name='exampleAPI')
-        assert repr(N) == "HALNavigator:exampleAPI"
-        assert repr(N['first']) == "HALNavigator:exampleAPI.first"
-        assert repr(N['next']) == "HALNavigator:exampleAPI.first.next"
-        assert repr(N['last']) == "HALNavigator:exampleAPI.last"
+        assert repr(N) == "HALNavigator(exampleAPI)"
+        assert repr(N['first']) == "HALNavigator(exampleAPI.first)"
+        assert repr(N['next']) == \
+          "HALNavigator(exampleAPI.foos[123].bars[234])"
+        assert repr(N['last']) == "HALNavigator(exampleAPI.last)"
 
 
 def test_HALNavigator__links():
@@ -94,8 +96,10 @@ def test_HALNavigator__links():
                          'href': 'http://www.example.com/users'}}
                      )
         N = HN.HALNavigator('http://www.example.com')
-        assert N.links == {
-            'ht:users': HN.HALNavigator('http://www.example.com')['ht:users']}
+        expected = {
+            'ht:users': HN.HALNavigator('http://www.example.com')['ht:users']
+        }
+        assert N.links == expected
 
 
 def test_HALNavigator__call():
@@ -418,3 +422,64 @@ def test_HALNavigator__boolean(status, boolean):
         else:
             assert not N
 
+
+def test_HALNavigator__multiple_links():
+    with httprettify():
+        index_uri = 'http://www.example.com/'
+        index_links = {
+            'about': {
+                'href': index_uri + 'about',
+                'title': 'A single link',
+            },
+            'alternate': [{'href': index_uri + 'alt/' + str(i),
+                           'name': 'alt_' + str(i)}
+                          for i in xrange(5)]
+        }
+        register_hal(index_uri, index_links)
+
+        N = HN.HALNavigator(index_uri)
+        assert isinstance(N['about'], HN.HALNavigator)
+        assert isinstance(N['alternate'], list)
+        for i, n in enumerate(N['alternate']):
+            assert isinstance(n, HN.HALNavigator)
+            assert n.uri == index_links['alternate'][i]['href']
+        assert len(N['alternate']) == 5
+
+
+def test_HALNavigator__relative_link():
+    with httprettify():
+        index_uri = 'http://www.example.com/api/'
+        relative_uri = 'another/link'
+        relative_templated = 'another/{link}'
+        index_links = {
+            'alternate': [{'href': index_uri + relative_uri},
+                          {'href': index_uri + relative_templated,
+                           'templated': True}],
+        }
+        register_hal(index_uri, index_links)
+        N = HN.HALNavigator(index_uri)
+        assert N['alternate'][0].relative_uri == '/' + relative_uri
+        assert N['alternate'][1].relative_uri == '/' + relative_templated
+
+
+def test_HALNavigator__fetch():
+    with httprettify() as HTTPretty:
+        index_uri = r'http://www.example.com'
+        index_re = re.compile(index_uri)
+        index_links = {'self': {'href': index_uri}}
+        body1 = {'name': 'body1', '_links': index_links}
+        body2 = {'name': 'body2', '_links': index_links}
+        responses = [httpretty.Response(body=json.dumps(body1)),
+                     httpretty.Response(body=json.dumps(body2))]
+        HTTPretty.register_uri(method='GET',
+                               uri=index_re,
+                               headers={'content_type': 'application/hal+json',
+                                        'server': 'HTTPretty 0.6.0'},
+                               responses=responses)
+        N = HN.HALNavigator(index_uri)
+        fetch1 = N()
+        fetch2 = N()
+        fetch3 = N.fetch()
+        assert fetch1['name'] == 'body1'
+        assert fetch2['name'] == 'body1'
+        assert fetch3['name'] == 'body2'
