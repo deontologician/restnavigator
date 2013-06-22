@@ -26,7 +26,6 @@ def autofetch(fn):
         return fn(self, *args, **qargs)
     return wrapped
 
-
 # TODO: Add __delitem__ to delete a linked resource
 class HALNavigator(object):
     '''The main navigation entity'''
@@ -57,15 +56,15 @@ class HALNavigator(object):
                 return '[{}]'.format(chunk)
             else:
                 return '.' + chunk
-        path = ''.join(path_clean(c) for c in self.relative_link.split('/'))
+        path = ''.join(path_clean(c) for c in self.relative_uri.split('/'))
         return "HALNavigator({name}{path})".format(name=self.name, path=path)
 
     @property
-    def relative_link(self):
+    def relative_uri(self):
         '''Returns the link of the current uri compared against the api root.
 
         This is a good candidate for overriding in a subclass if the api you
-        are interacting uses an unconventional uri layout.'''
+        are interacting with uses an unconventional uri layout.'''
         if self.uri is None:
             return self.template_uri.replace(self.root, '/')
         else:
