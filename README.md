@@ -114,7 +114,7 @@ can squelch this exception and just have the post call return a HALNavigator
 with a 400/500 status code if you want:
 
 ```python
->>> errNav = N['ht:signup'].post({
+>>> errNav = N['ht:signup'].create({
 ...    'username': 'fred',
 ...    'password': 'pwnme',
 ...    'real_name': 'Fred Wilson'
