@@ -23,14 +23,14 @@ As an example, we'll connect to the haltalk api.
 >>> from rest_navigator import HALNavigator
 >>> N = HALNavigator('http://haltalk.herokuapp.com/', name="haltalk")
 >>> N
-HALNavigator:haltalk
+HALNavigator(haltalk)
 ```
 
 Usually, with the index, the data isn't too important, rather the links it gives
 you are important. Let's look at those:
 
 ```python
->>> N.links()
+>>> N.links
 {'ht:users': [HALNavigator(haltalk.users)],
  'ht:signup': [HALNavigator(haltalk.signup)],
  'ht:me': [HALNavigator(haltalk.users.{name})],
@@ -64,6 +64,7 @@ different ways:
  u'hint_4': u'Click the green button to follow a link with a GET request..',
  u'hint_5': u'Click the book icon to read docs for the link relation.',
  u'welcome': u'Welcome to a haltalk server.'}
+>>> N.fetch() # will refetch the resource and return state, regardless of caching
 ```
 
 Calling a HALNavigator will execute a GET request against the resource and returns

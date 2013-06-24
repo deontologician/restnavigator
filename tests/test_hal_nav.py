@@ -423,6 +423,20 @@ def test_HALNavigator__boolean(status, boolean):
             assert not N
 
 
+def test_HALNavigator__boolean_fetched():
+    with httprettify():
+        register_hal(status=200)
+
+        N = HN.HALNavigator('http://www.example.com/')
+        N()
+        assert N
+
+        register_hal(status=500)
+        N = HN.HALNavigator('http://www.example.com/')
+        N(raise_exc=False)
+        assert not N
+
+
 def test_HALNavigator__multiple_links():
     with httprettify():
         index_uri = 'http://www.example.com/'
@@ -444,6 +458,39 @@ def test_HALNavigator__multiple_links():
             assert isinstance(n, HN.HALNavigator)
             assert n.uri == index_links['alternate'][i]['href']
         assert len(N['alternate']) == 5
+
+
+def test_HALNavigator__multilink_gauntlet():
+    with httprettify():
+        index_uri = 'http://www.example.com/api/'
+        first_uri = index_uri + 'first'
+        second_a_uri = index_uri + 'second/a'
+        second_b_uri = index_uri + 'second/b'
+        third_uri = index_uri + 'third/{keyword}'
+        index_links = {'first': {'href': first_uri}}
+        first_links = {'next': [{'href': second_a_uri},
+                                {'href': second_b_uri}]}
+        second_links = {'next': [{'href': third_uri, 'templated': True}]}
+        register_hal(index_uri, index_links)
+        register_hal(first_uri, first_links)
+        register_hal(second_a_uri, second_links)
+        register_hal(second_b_uri, second_links)
+        register_hal(third_uri, index_links)
+
+        N = HN.HALNavigator(index_uri)
+        N_1 = N['first']
+        N_2a = N['first', 'next'][0]
+        N_2b = N['first', 'next'][1]
+        N_3a = N['first', 'next'][0]['next']
+        N_3b = N['first', 'next'][1]['next']
+        N_3_completed = N['first', 'next'][0]['next', 'keyword':'foo']
+        assert N_1.uri == first_uri
+        assert N_2a.uri == second_a_uri
+        assert N_2b.uri == second_b_uri
+        assert N_3a.templated and N_3a.template_uri == third_uri
+        assert N_3b.templated and N_3b.template_uri == third_uri
+        assert N_3a == N_3b
+        assert N_3_completed.uri == 'http://www.example.com/api/third/foo'
 
 
 def test_HALNavigator__relative_link():

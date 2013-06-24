@@ -214,12 +214,13 @@ class HALNavigator(object):
         @autofetch
         def dereference(n, rels):
             '''Helper to recursively dereference'''
-            if isinstance(n, list):
-                return n
             if len(rels) == 1:
                 ret = n._links[rels[0]]
                 if isinstance(ret, list):
-                    return [r._copy() if r.templated else r for r in ret]
+                    if len(ret) == 1:
+                        return ret[0]
+                    else:
+                        return [r._copy() if r.templated else r for r in ret]
                 else:
                     return ret._copy() if ret.templated else ret
             else:
