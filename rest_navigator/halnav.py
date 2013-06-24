@@ -8,6 +8,7 @@ from weakref import WeakValueDictionary
 import functools
 import httplib
 import re
+import json
 
 import requests
 import uritemplate
@@ -30,9 +31,9 @@ def autofetch(fn):
 class HALNavigator(object):
     '''The main navigation entity'''
 
-    def __init__(self, root, name=None):
+    def __init__(self, root, apiname=None):
         self.root = utils.fix_scheme(root)
-        self.name = utils.namify(root) if name is None else name
+        self.apiname = utils.namify(root) if apiname is None else apiname
         self.uri = self.root
         self.profile = None
         self.title = None
@@ -57,7 +58,7 @@ class HALNavigator(object):
             else:
                 return '.' + chunk
         path = ''.join(path_clean(c) for c in self.relative_uri.split('/'))
-        return "HALNavigator({name}{path})".format(name=self.name, path=path)
+        return "HALNavigator({name}{path})".format(name=self.apiname, path=path)
 
     @property
     def relative_uri(self):
@@ -99,7 +100,6 @@ class HALNavigator(object):
             cp = self._copy(uri=link['href'] if not templated else None,
                             template_uri=link['href'] if templated else None,
                             templated=templated,
-                            rel=rel,
                             title=link.get('title'),
                             type=link.get('type'),
                             profile=link.get('profile'),
@@ -148,7 +148,13 @@ class HALNavigator(object):
         return cp
 
     def __eq__(self, other):
-        return self.uri == other.uri and self.name == other.name
+        try:
+            return self.uri == other.uri and self.apiname == other.apiname
+        except Exception:
+            return False
+
+    def __ne__(self, other):
+        return not self == other
 
     def __call__(self, raise_exc=True):
         if self.response is None:
@@ -159,6 +165,31 @@ class HALNavigator(object):
         '''Like __call__, but doesn't cache, always makes the request'''
         self._GET(raise_exc=raise_exc)
         return self.state.copy()
+
+    def create(self,
+               body,
+               raise_exc=True,
+               content_type='application/json',
+               json_cls=None,
+               headers = None,
+               ):
+        '''Performs an HTTP POST to the server, to create a subordinate
+        resource. Returns a new HALNavigator representing that resource.
+
+        `body` may either be a string or a dictionary which will be serialized as json
+        `content_type` may be modified if necessary
+        `json_cls` is a JSONEncoder to use rather than the standard
+        `headers` are additional headers to send in the request'''
+        if isinstance(body, dict):
+            body = json.dumps(body, cls=json_cls, separators=(',', ':'))
+        headers = {} if headers is None else headers
+        headers['Content-Type'] = content_type
+        response = requests.post(
+            self.uri, data=body, headers=headers, allow_redirects=False)
+        if response.status_code in (httplib.FOUND, httplib.SEE_OTHER):
+            return self._copy(uri=response.headers['Location'])
+        else:
+            return (response.status_code, response)
 
     def __iter__(self):
         '''Part of iteration protocol'''

@@ -21,7 +21,7 @@ As an example, we'll connect to the haltalk api.
 
 ```python
 >>> from rest_navigator import HALNavigator
->>> N = HALNavigator('http://haltalk.herokuapp.com/', name="haltalk")
+>>> N = HALNavigator('http://haltalk.herokuapp.com/', apiname="haltalk")
 >>> N
 HALNavigator(haltalk)
 ```
@@ -99,12 +99,12 @@ From the docs for `ht:signup` we find out the format for the POST request to
 sign up. So let's actually sign up:
 
 ```python
->>> N['ht:signup'].post(
+>>> N['ht:signup'].create(
 ... {'username': 'fred23',
 ...  'password': 'some_passwd',
 ...  'real_name': my_real_name}
 ... ).status
-(201, 'Created')
+(201, Response<201>)
 ```
 
 If the user name had already been in use, a 400 would have been returned from

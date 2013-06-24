@@ -69,6 +69,28 @@ def test_HALNavigator__creation():
     assert repr(N) == "HALNavigator(Example)"
 
 
+@pytest.mark.parametrize(('name1', 'uri1', 'name2', 'uri2', 'equal'), [
+    ('apiname', 'http://www.aaa.com', 'apiname', 'http://www.bbb.com', False),
+    ('api1', 'http://www.bbb.com', 'api2', 'http://www.bbb.com', False),
+    ('api1', 'http://www.aaa.com', 'api1', 'http://www.aaa.com', True),
+])
+def test_HALNavigator__eq__(name1, uri1, name2, uri2, equal):
+    N1 = HN.HALNavigator(uri1, apiname=name1)
+    N2 = HN.HALNavigator(uri2, apiname=name2)
+    if equal:
+        assert N1 == N2
+        assert N2 == N1
+    else:
+        assert N1 != N2
+        assert N2 != N1
+
+
+def test_HALNavigator__eq__nonnav():
+    N = HN.HALNavigator('http://www.example.com')
+    assert N != 'http://www.example.com'
+    assert 'http://www.example.com' != N
+
+
 def test_HALNAvigator__repr():
     with httprettify():
         index_uri = 'http://www.example.com/api/'
@@ -81,7 +103,7 @@ def test_HALNAvigator__repr():
 
         N_1 = HN.HALNavigator(index_uri)
         assert repr(N_1) == "HALNavigator(ExampleAPI)"
-        N = HN.HALNavigator(index_uri, name='exampleAPI')
+        N = HN.HALNavigator(index_uri, apiname='exampleAPI')
         assert repr(N) == "HALNavigator(exampleAPI)"
         assert repr(N['first']) == "HALNavigator(exampleAPI.first)"
         assert repr(N['next']) == \
@@ -376,7 +398,6 @@ def test_HALNavigator__status(status, reason):
         assert N.status is None
         N()
         assert N.status == (status, reason)
-        # TODO: Add tests for POST/PUT/DELETE/PATCH status codes
 
 
 @pytest.mark.parametrize(('status', 'raise_exc'), [
@@ -530,3 +551,36 @@ def test_HALNavigator__fetch():
         assert fetch1['name'] == 'body1'
         assert fetch2['name'] == 'body1'
         assert fetch3['name'] == 'body2'
+
+
+@pytest.mark.parametrize(('redirect_status', 'post_body'), [
+    (302, {'name': 'foo'}),
+    (303, {'name': 'foo'}),
+    (204, {'name': 'foo'}),
+    (303, '{"name":"foo"}'),
+])
+def test_HALNavigator__create(redirect_status, post_body):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        hosts_uri = index_uri + 'hosts'
+        new_resource_uri = index_uri + 'new_resource'
+        index_links = {'hosts': {'href': hosts_uri}}
+        register_hal(index_uri, index_links)
+        register_hal(new_resource_uri)
+        HTTPretty.register_uri('POST',
+                               uri=hosts_uri,
+                               location=new_resource_uri,
+                               status=redirect_status,
+                               )
+        N = HN.HALNavigator(index_uri)
+        N2 = N['hosts'].create(post_body)
+        assert HTTPretty.last_request.method == 'POST'
+        last_content_type = HTTPretty.last_request.headers['content-type']
+        assert last_content_type == 'application/json'
+        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        if redirect_status in (302, 303):
+            assert N2.uri == new_resource_uri
+            assert not N2.fetched
+        else:
+            assert N2[0] == redirect_status
+            assert N2[1].headers['location'] == new_resource_uri
