@@ -557,6 +557,8 @@ def test_HALNavigator__fetch():
     (302, {'name': 'foo'}),
     (303, {'name': 'foo'}),
     (204, {'name': 'foo'}),
+    (201, {'name': 'foo'}),
+    (202, {'name': 'foo'}),
     (303, '{"name":"foo"}'),
 ])
 def test_HALNavigator__create(redirect_status, post_body):
@@ -578,7 +580,7 @@ def test_HALNavigator__create(redirect_status, post_body):
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
         assert HTTPretty.last_request.body == '{"name":"foo"}'
-        if redirect_status in (302, 303):
+        if redirect_status in (201, 202, 302, 303):
             assert N2.uri == new_resource_uri
             assert not N2.fetched
         else:

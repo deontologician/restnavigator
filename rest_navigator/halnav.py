@@ -178,12 +178,13 @@ class HALNavigator(object):
                raise_exc=True,
                content_type='application/json',
                json_cls=None,
-               headers = None,
+               headers=None,
                ):
         '''Performs an HTTP POST to the server, to create a subordinate
         resource. Returns a new HALNavigator representing that resource.
 
-        `body` may either be a string or a dictionary which will be serialized as json
+        `body` may either be a string or a dictionary which will be serialized
+            as json
         `content_type` may be modified if necessary
         `json_cls` is a JSONEncoder to use rather than the standard
         `headers` are additional headers to send in the request'''
@@ -193,7 +194,13 @@ class HALNavigator(object):
         headers['Content-Type'] = content_type
         response = requests.post(
             self.uri, data=body, headers=headers, allow_redirects=False)
-        if response.status_code in (httplib.FOUND, httplib.SEE_OTHER):
+        if raise_exc and not response:
+            raise HALNavigatorError(msg=response.status, nav=response)
+        if response.status_code in (httplib.CREATED,
+                                    httplib.ACCEPTED,
+                                    httplib.FOUND,
+                                    httplib.SEE_OTHER,
+                                    ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
         else:
             return (response.status_code, response)
