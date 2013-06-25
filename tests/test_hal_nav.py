@@ -584,3 +584,21 @@ def test_HALNavigator__create(redirect_status, post_body):
         else:
             assert N2[0] == redirect_status
             assert N2[1].headers['location'] == new_resource_uri
+
+
+def test_HALNavigator__relative_links():
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/'
+        about_relative_uri = '/about/'
+        about_full_uri = index_uri + 'about/'
+        index_links = {'about': {'href': about_relative_uri}}
+        about_links = {'alternate': {'href': 'alternate'},
+                       'index': {'href': './index'}}
+        register_hal(index_uri, index_links)
+        register_hal(about_full_uri, about_links)
+
+        N = HN.HALNavigator(index_uri)
+        assert N['about'].uri == 'http://www.example.com/about/'
+        assert N['about', 'alternate'].uri == \
+            'http://www.example.com/about/alternate'
+        assert N['about']['index'].uri == 'http://www.example.com/about/index'

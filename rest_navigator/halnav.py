@@ -9,6 +9,7 @@ import functools
 import httplib
 import re
 import json
+import urlparse
 
 import requests
 import uritemplate
@@ -97,8 +98,14 @@ class HALNavigator(object):
             if isinstance(link, list):
                 return [make_nav(rel, l) for l in link]
             templated = link.get('templated', False)
-            cp = self._copy(uri=link['href'] if not templated else None,
-                            template_uri=link['href'] if templated else None,
+            if not templated:
+                uri = urlparse.urljoin(self.uri, link['href'])
+                template_uri = None
+            else:
+                uri = None
+                template_uri = urlparse.urljoin(self.uri, link['href'])
+            cp = self._copy(uri=uri,
+                            template_uri=template_uri,
                             templated=templated,
                             title=link.get('title'),
                             type=link.get('type'),
