@@ -6,16 +6,27 @@ import httpretty
 import json
 import pytest
 import re
-from contextlib import contextmanager
+import contextlib
+import random
+import string
 
 import uritemplate
+import requests.auth
 
 import rest_navigator.halnav as HN
 
 # pylint: disable-msg=E1101
 
 
-@contextmanager
+@pytest.fixture()
+def random_string():
+    def rs():
+        while True:
+            yield ''.join(random.sample(string.ascii_letters, 6))
+    return rs()
+
+
+@contextlib.contextmanager
 def httprettify():
     '''Context manager to do what the @httprettified decorator does (without
     mucking up py.test's magic)
@@ -196,13 +207,11 @@ def test_HALNavigator__iteration():
                 page_links = {'next': {'href': index_uri + str(i + 1)}}
             else:
                 page_links = {}
-            print(page_uri, page_links)
             register_hal(page_uri, page_links)
 
         N = HN.HALNavigator(index_uri)
         captured = []
         for i, nav in enumerate(N, start=1):
-            print('{}: {}'.format(i, nav.uri))
             assert isinstance(nav, HN.HALNavigator)
             assert nav.uri == index_uri + str(i)
             captured.append(nav)
@@ -604,3 +613,60 @@ def test_HALNavigator__relative_links():
         assert N['about', 'alternate'].uri == \
             'http://www.example.com/about/alternate'
         assert N['about']['index'].uri == 'http://www.example.com/about/index'
+
+
+def test_HALNavigator__authenticate(random_string):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        auth_uri = 'http://www.example.com/api/auth'
+        index_links = {'start': {'href': auth_uri}}
+        username = next(random_string)
+        password = next(random_string)
+
+        def auth_callback(r, uri, headers):
+            username_ok = r.headers.get('Username') == username
+            password_ok = r.headers.get('Password') == password
+            if username_ok and password_ok:
+                return (200, headers, json.dumps({'authenticated': True}))
+            else:
+                return (401, headers, json.dumps({'authenticated': False}))
+        register_hal(index_uri, index_links)
+        HTTPretty.register_uri('GET', auth_uri, body=auth_callback)
+
+        def toy_auth(req):
+            req.headers['Username'] = username
+            req.headers['Password'] = password
+            return req
+
+        N = HN.HALNavigator(index_uri, apiname='N1', auth=toy_auth)
+        assert N['start']()['authenticated']
+
+        N2 = HN.HALNavigator(index_uri, apiname='N2', auth=None)
+        N2_auth = N2['start']
+        N2_auth(raise_exc=False)
+        assert N2_auth.status == (401, 'Unauthorized')
+        N2.authenticate(toy_auth)
+        assert N2_auth.fetch()['authenticated']
+
+
+def test_HALNavigator__not_json():
+    '''This is a pretty common problem'''
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        html = '<p>\n\tThis is not JSON\n</p>'
+        HTTPretty.register_uri('GET', index_uri, body=html)
+
+        N = HN.HALNavigator(index_uri)
+        with pytest.raises(HN.UnexpectedlyNotJSON):
+            N()
+
+
+def test_HALNavigator__custom_headers():
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/'
+        register_hal(index_uri, {})
+
+        custom_headers = {'X-Pizza': 'true'}
+        N = HN.HALNavigator(index_uri, headers=custom_headers)
+        N()
+        assert HTTPretty.last_request.headers.get('X-Pizza')

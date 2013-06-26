@@ -28,17 +28,28 @@ def autofetch(fn):
         return fn(self, *args, **qargs)
     return wrapped
 
-# TODO: Add __delitem__ to delete a linked resource
+
+def default_headers():
+    '''Default headers for HALNavigator'''
+    return {'Accept': 'application/hal+json,application/json'}
+
+
 class HALNavigator(object):
     '''The main navigation entity'''
 
-    def __init__(self, root, apiname=None):
+    def __init__(
+            self, root, apiname=None, auth=None, headers=None, session=None):
         self.root = utils.fix_scheme(root)
         self.apiname = utils.namify(root) if apiname is None else apiname
         self.uri = self.root
         self.profile = None
         self.title = None
         self.type = 'application/hal+json'
+        self.session = session or requests.Session()
+        self.session.auth = auth
+        self.session.headers.update(default_headers())
+        if headers:
+            self.session.headers.update(headers)
         self.response = None
         self.state = None
         self.template_uri = None
@@ -59,7 +70,12 @@ class HALNavigator(object):
             else:
                 return '.' + chunk
         path = ''.join(path_clean(c) for c in self.relative_uri.split('/'))
-        return "HALNavigator({name}{path})".format(name=self.apiname, path=path)
+        return "HALNavigator({name}{path})".format(
+                name=self.apiname, path=path)
+
+    def authenticate(self, auth):
+        '''Allows setting authentication for future requests to the api'''
+        self.session.auth = auth
 
     @property
     def relative_uri(self):
@@ -90,8 +106,15 @@ class HALNavigator(object):
                 'This is a templated Navigator. You must provide values for '
                 'the template parameters before fetching the resource or else '
                 'explicitly null them out with the syntax: N[:]')
-        self.response = requests.get(self.uri)
-        body = self.response.json()
+        self.response = self.session.get(self.uri)
+        try:
+            body = self.response.json()
+        except ValueError as e:
+            if raise_exc:
+                raise UnexpectedlyNotJSON(
+                    "The resource at {.uri} wasn't valid JSON", self.response)
+            else:
+                return
 
         def make_nav(rel, link):
             '''Crafts the Navigators for each link'''
@@ -192,7 +215,7 @@ class HALNavigator(object):
             body = json.dumps(body, cls=json_cls, separators=(',', ':'))
         headers = {} if headers is None else headers
         headers['Content-Type'] = content_type
-        response = requests.post(
+        response = self.session.post(
             self.uri, data=body, headers=headers, allow_redirects=False)
         if raise_exc and not response:
             raise HALNavigatorError(
@@ -294,3 +317,13 @@ class HALNavigatorError(Exception):
     def __init__(self, *args, **kwargs):
         self.nav = kwargs.pop('nav', None)
         self.response = kwargs.pop('response', None)
+
+
+class UnexpectedlyNotJSON(TypeError):
+    '''Raised when a non-json parseable resource is gotten'''
+    def __init__(self, msg, response):
+        self.msg = msg
+        self.response = response
+
+    def __repr__(self):
+        return '{.msg}:\n\n\n{.response}'.format(self)
