@@ -3,6 +3,8 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
+__version__ = '0.2'
+
 import copy
 from weakref import WeakValueDictionary
 import functools
@@ -31,7 +33,8 @@ def autofetch(fn):
 
 def default_headers():
     '''Default headers for HALNavigator'''
-    return {'Accept': 'application/hal+json,application/json'}
+    return {'Accept': 'application/hal+json,application/json',
+            'User-Agent': 'HALNavigator/{}'.format(__version__)}
 
 
 class HALNavigator(object):
