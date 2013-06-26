@@ -4,18 +4,17 @@ REST Navigator is a python library for interacting with
 ([level 3](http://martinfowler.com/articles/richardsonMaturityModel.html#level3))
 HTTP REST apis with some defined hyperlinking relations. Initially, it only
 supports [HAL+JSON](http://tools.ietf.org/html/draft-kelly-json-hal-05) but it
-should be general enough to extend to other formats, and writing a navigator
-that makes use of HTML links, or
-[HTTP link-headers](http://tools.ietf.org/html/rfc5988) should be completely
-feasible. It's first goal is making navigating HAL apis very painless, and
-generality will come later.
+should be general enough to extend to other formats eventually. Its first goal
+is to make interacting with HAL hypermedia apis as painless as possible, while
+discouraging REST anti-patterns.
 
 # How to use it
 
-To begin interacting with a restful api, you've got to create a HALNavigator
+To begin interacting with a restful HAL api, you've got to create a HALNavigator
 that points to the api root. Ideally, in a restful API, the root URL is the only
 URL that needs to be hardcoded in your application. All other URLs are obtained
-from the api responses themselves.
+from the api responses themselves (think of your api client as 'clicking on
+links', rather than having the urls hardcoded).
 
 As an example, we'll connect to the haltalk api.
 
@@ -120,7 +119,7 @@ with a 400/500 status code if you want:
 ...    'real_name': 'Fred Wilson'
 ... }, raise_exc=False)
 >>> errNav
-HALNavigator('haltalk')['ht:signup']#400!
+HALNavigator(haltalk.signup)  # 400!
 >>> errNav.status
 (400, 'Bad Request')
 >>> errNav.state
@@ -133,7 +132,7 @@ character after it. You can also tell by the .parameters attribute:
 
 ```python
 >>> N['ht:me']
-HALNavigator('haltalk')['ht:me']*
+HALNavigator(haltalk.users.{name})
 >>> N['ht:me'].parameters
 set(['name'])
 ```
@@ -156,8 +155,21 @@ HALNavigator('haltalk')['ht:me', 'name':'fred23']
  'username': 'fred23'}
 ```
 
-rest_navigator also makes it easy to iter
+HALNavigator allows any authentication method that
+[requests](http://www.python-requests.org/en/latest/user/advanced/#custom-authentication)
+supports. For basic auth (which haltalk uses), we can just pass a tuple.
 
+```python
+>>> N.authenticate(('fred23', 'pwnme'))
+```
+
+Now we can actually create a new post:
+
+```python
+>>> N_post = N['ht:me', 'name':'fred23']['ht:posts'].create({'content': 'My first post'})
+>>> N_post()
+{u'content': u'My first post', u'created_at': u'2013-06-26T03:19:52+00:00'}
+```
 
 ## More:
 
