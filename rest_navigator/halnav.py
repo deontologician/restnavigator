@@ -195,7 +195,8 @@ class HALNavigator(object):
         response = requests.post(
             self.uri, data=body, headers=headers, allow_redirects=False)
         if raise_exc and not response:
-            raise HALNavigatorError(msg=response.status, nav=response)
+            raise HALNavigatorError(
+                msg=response.status, nav=self, response=response)
         if response.status_code in (httplib.CREATED,
                                     httplib.ACCEPTED,
                                     httplib.FOUND,
@@ -292,3 +293,4 @@ class HALNavigatorError(Exception):
 
     def __init__(self, *args, **kwargs):
         self.nav = kwargs.pop('nav', None)
+        self.response = kwargs.pop('response', None)

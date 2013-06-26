@@ -589,7 +589,7 @@ def test_HALNavigator__create(redirect_status, post_body):
 
 
 def test_HALNavigator__relative_links():
-    with httprettify() as HTTPretty:
+    with httprettify():
         index_uri = 'http://www.example.com/'
         about_relative_uri = '/about/'
         about_full_uri = index_uri + 'about/'
