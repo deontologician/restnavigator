@@ -1,5 +1,7 @@
 # REST Navigator
 
+![build status](https://travis-ci.org/deontologician/rest_navigator.png?branch=master)
+
 REST Navigator is a python library for interacting with
 ([level 3](http://martinfowler.com/articles/richardsonMaturityModel.html#level3))
 HTTP REST apis with some defined hyperlinking relations. Initially, it only
