@@ -29,7 +29,7 @@ setup(
                       ],
     tests_require=[
         "httpretty==0.6.0",
-        "pytest==2.3.4",
+        "pytest==2.3.5",
     ],
     cmdclass={'test': PyTest},
     dependency_links=[
