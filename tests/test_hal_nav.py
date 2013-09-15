@@ -669,3 +669,67 @@ def test_HALNavigator__custom_headers():
         N = HN.HALNavigator(index_uri, headers=custom_headers)
         N()
         assert HTTPretty.last_request.headers.get('X-Pizza')
+
+@pytest.fixture
+def bigtest_1():
+    bigtest = type(str('bigtest_1'), (object,), {})
+    bigtest.index_uri = index_uri = 'http://www.example.com/'
+    bigtest.gadget_profile = gadget = index_uri + 'profiles/gadget'
+    bigtest.widget_profile = widget = index_uri + 'profiles/widget'
+    bigtest.index_links = {
+        'self': {'href': index_uri},
+        'curies': [{'href': index_uri + 'rels/{rel}',
+                    'name': 'test'}],
+        'test:foo': [
+            {'href': index_uri + 'bar',
+             'name': 'bar',
+             'title': 'Bar',
+             'profile': widget,
+             },
+            {'href': index_uri + 'baz',
+             'name': 'baz',
+             'title': 'Baz',
+             'profile': gadget,
+             },
+            {'href': index_uri + 'qux',
+             'name': 'qux',
+             'title': 'Qux',
+             'profile': widget,
+             },
+        ]
+    }
+    return bigtest
+
+def test_HALNavigator__get_by_properties_single(bigtest_1):
+    with httprettify() as HTTPretty:
+        register_hal(bigtest_1.index_uri, bigtest_1.index_links)
+
+        N = HN.HALNavigator(bigtest_1.index_uri)
+        baz = N.links['test:foo'].get_by('name', 'baz')
+        bar = N.links['test:foo'].get_by('name', 'bar')
+        qux = N.links['test:foo'].get_by('name', 'qux')
+        not_found = N.links['test:foo'].get_by('name', 'not_found')
+        assert baz.uri == bigtest_1.index_links['test:foo'][1]['href']
+        assert bar.uri == bigtest_1.index_links['test:foo'][0]['href']
+        assert qux.uri == bigtest_1.index_links['test:foo'][2]['href']
+        assert not_found is None
+
+def test_HALNavigator__get_by_properties_multi(bigtest_1):
+    with httprettify() as HTTPretty:
+        register_hal(bigtest_1.index_uri, bigtest_1.index_links)
+
+        N = HN.HALNavigator(bigtest_1.index_uri)
+        bar = N.links['test:foo'].get_by('name', 'bar')
+        baz = N.links['test:foo'].get_by('name', 'baz')
+        qux = N.links['test:foo'].get_by('name', 'qux')
+
+        bazs = N.links['test:foo'].getall_by('name', 'baz')
+        assert bazs == [baz]
+        not_founds = N.links['test:foo'].getall_by('name', 'not_founds')
+        assert not_founds == []
+        widgets = N.links['test:foo'].getall_by('profile',
+                                                bigtest_1.widget_profile)
+        gadgets = N.links['test:foo'].getall_by('profile',
+                                                bigtest_1.gadget_profile)
+        assert widgets == [bar, qux]
+        assert gadgets == [baz]

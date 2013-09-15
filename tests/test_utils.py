@@ -1,12 +1,28 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
+
 import pytest
 
 import rest_navigator.utils as RNU
 
 # pylint: disable=E1101
 
+@pytest.fixture
+def blank(request):
+    '''Returns a blank object class with settable attributes'''
+    class Blank(object):
+        def __init__(self, **kwargs):
+            self._kwargs = {}
+            for k, v in kwargs.iteritems():
+                setattr(self, k, v)
+                self._kwargs[k] = v
+            self._kwargs = kwargs
+        def __repr__(self):
+            r = ['{}={}'.format(k, v) for k, v in self._kwargs.iteritems()]
+            return 'Blank({})'.format(' '.join(r))
+    return Blank
 
 def test_fix_scheme():
     assert RNU.fix_scheme('http://www.example.com') == 'http://www.example.com'
@@ -61,3 +77,72 @@ def test_slice_process():
 ])
 def test_namify(root_uri, expected):
     assert RNU.namify(root_uri) == expected
+
+
+def test_LinkList__append_with_get_by_one(blank):
+    linklist = RNU.LinkList()
+    obj = blank()
+    linklist.append_with(obj, name='myobject', title='My Object')
+    assert linklist.get_by('name', 'myobject') == obj
+    assert linklist.get_by('title', 'My Object') == obj
+
+def test_LinkList__getby_failure():
+    ll = RNU.LinkList()
+    assert ll.get_by('name', 'XXX') is None
+
+@pytest.fixture
+def linklist(blank):
+    linklist = RNU.LinkList()
+    objs = collections.OrderedDict([
+        ('A.a', blank(name='A.a', klass='A', id='a')),
+        ('A.b', blank(name='A.b', klass='A', id='b')),
+        ('A.c', blank(name='A.c')),
+        ('B.a', blank(name='B.a', klass='B', id='a')),
+        ('B.b', blank(id='b')),
+        ('C.a', blank(name='C.a', klass='C', id='a')),
+        ('C.b', blank(klass='C', id='b')),
+    ])
+    for i, obj in enumerate(objs.values()):
+        linklist.append_with(obj, **obj._kwargs)
+    return linklist, objs
+
+def test_LinkList__get_by_1(linklist):
+    ll, objs = linklist
+    assert ll.get_by('name', 'A.a') == objs['A.a']
+
+def test_LinkList__get_by_2(linklist):
+    ll, objs = linklist
+    assert ll.get_by('klass', 'A') == objs['A.a']
+
+def test_LinkList__getall_by_name(linklist):
+    ll, objs = linklist
+    assert ll.getall_by('name', 'A.a') == [objs['A.a']]
+    assert ll.getall_by('name', 'A.b') == [objs['A.b']]
+    assert ll.getall_by('name', 'A.c') == [objs['A.c']]
+    assert ll.getall_by('name', 'B.a') == [objs['B.a']]
+    assert ll.getall_by('name', 'B.b') == []
+    assert ll.getall_by('name', 'C.a') == [objs['C.a']]
+    assert ll.getall_by('name', 'C.b') == []
+    assert ll.getall_by('name', 'D.a') == []
+
+def test_LinkList__getall_by_klass(linklist):
+    ll, objs = linklist
+    assert ll.getall_by('klass', 'A') == [objs['A.a'], objs['A.b']]
+    assert ll.getall_by('klass', 'B') == [objs['B.a']]
+    assert ll.getall_by('klass', 'C') == [objs['C.a'], objs['C.b']]
+    assert ll.getall_by('klass', 'D') == []
+
+def test_LinkList__getall_by_id(linklist):
+    ll, objs = linklist
+    assert ll.getall_by('id', 'a') == [objs['A.a'], objs['B.a'], objs['C.a']]
+    assert ll.getall_by('id', 'b') == [objs['A.b'], objs['B.b'], objs['C.b']]
+    assert ll.getall_by('id', 'c') == []
+    assert ll.getall_by('id', 'd') == []
+
+def test_LinkList__init_iterator(linklist):
+    ll_iterated, objs = linklist
+    ctor_arg = [(v, v._kwargs) for k, v in objs.iteritems()]
+    ll_ctor = RNU.LinkList(ctor_arg)
+    assert ll_iterated == ll_ctor
+    # Non black-box test warning!
+    assert ll_iterated._meta == ll_ctor._meta

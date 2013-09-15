@@ -2,6 +2,7 @@
 branch = True
 omit = '__init__.py'
 
+
 [report]
 
 directory = 'htmlcov'

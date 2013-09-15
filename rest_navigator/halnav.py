@@ -119,10 +119,10 @@ class HALNavigator(object):
             else:
                 return
 
-        def make_nav(rel, link):
+        def make_nav(link):
             '''Crafts the Navigators for each link'''
             if isinstance(link, list):
-                return [make_nav(rel, l) for l in link]
+                return utils.LinkList((make_nav(l), l) for l in link)
             templated = link.get('templated', False)
             if not templated:
                 uri = urlparse.urljoin(self.uri, link['href'])
@@ -143,12 +143,10 @@ class HALNavigator(object):
             else:
                 cp.template_uri = None
             return cp
-
-        self._links = {
-            rel: make_nav(rel, links)
-            for rel, links in body.get('_links', {}).iteritems()
-            if rel != 'self'
-        }
+        self._links = {}
+        for rel, links in body.get('_links', {}).iteritems():
+            if rel not in ('self', 'curies'):
+                self._links[rel] = make_nav(links)
         self.title = body.get('_links', {}).get('self', {}).get(
             'title', self.title)
         self.state = {k: v for k, v in self.response.json().iteritems()

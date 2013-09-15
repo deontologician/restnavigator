@@ -124,3 +124,40 @@ def namify(root_uri):
                                         api='API' if formatargs['api'] else '',
                                         vrsn=''.join(formatargs['version']),
                                         )
+
+class LinkList(list):
+    '''A list subclass that offers different ways of grabbing the values based
+    on various metadata stored for each entry in the dictionary.
+
+    Note: Removing items from this list isn't really the point, so no attempt
+    has been made to make this convenient. Deleting items will not remove them
+    from the list's metadata.'''
+
+    def __init__(self, items=None):
+        super(LinkList, self).__init__()
+        self._meta = {}
+        items = items or []
+        for obj, properties in items:
+            self.append_with(obj, **properties)
+
+    def append_with(self, obj, **properties):
+        '''Add an item to the dictionary with the given metadata properties'''
+        for prop, val in properties.iteritems():
+            self._meta.setdefault(prop, {}).setdefault(val, []).append(obj)
+        self.append(obj)
+
+    def get_by(self, prop, val):
+        '''Retrieve an item from the dictionary with the given metadata
+        properties. If there is no such item, None will be returned, if there
+        are multiple such items, the first will be returned.'''
+        try:
+            return self._meta[prop][val][0]
+        except (KeyError, IndexError):
+            return None
+
+    def getall_by(self, prop, val):
+        '''Retrieves all items from the dictionary with the given metadata'''
+        try:
+            return self._meta[prop][val][:]  # return a copy of the list
+        except KeyError:
+            return []
