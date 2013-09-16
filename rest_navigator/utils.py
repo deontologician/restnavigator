@@ -1,5 +1,4 @@
 from __future__ import print_function
-from __future__ import unicode_literals
 
 import urlparse
 import re
@@ -161,3 +160,7 @@ class LinkList(list):
             return self._meta[prop][val][:]  # return a copy of the list
         except KeyError:
             return []
+
+    def named(self, name):
+        '''Returns .get_by('name', name)'''
+        return self.get_by('name', name)

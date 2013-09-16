@@ -1,6 +1,5 @@
 '''A library to allow navigating rest apis easy.'''
 
-from __future__ import unicode_literals
 from __future__ import print_function
 
 __version__ = '0.2'
@@ -12,6 +11,7 @@ import httplib
 import re
 import json
 import urlparse
+import webbrowser
 
 import requests
 import uritemplate
@@ -48,6 +48,7 @@ class HALNavigator(object):
         self.profile = None
         self.title = None
         self.type = 'application/hal+json'
+        self.curies = None
         self.session = session or requests.Session()
         self.session.auth = auth
         self.session.headers.update(default_headers())
@@ -149,6 +150,9 @@ class HALNavigator(object):
                 self._links[rel] = make_nav(links)
         self.title = body.get('_links', {}).get('self', {}).get(
             'title', self.title)
+        if 'curies' in body.get('_links', {}):
+            curies = body['_links']['curies']
+            self.curies = {curie['name']: curie['href'] for curie in curies}
         self.state = {k: v for k, v in self.response.json().iteritems()
                       if k not in ('_links', '_embedded')}
         self.state.pop('_links', None)
@@ -220,7 +224,7 @@ class HALNavigator(object):
             self.uri, data=body, headers=headers, allow_redirects=False)
         if raise_exc and not response:
             raise HALNavigatorError(
-                msg=response.status, nav=self, response=response)
+                msg=response.status_code, nav=self, response=response)
         if response.status_code in (httplib.CREATED,
                                     httplib.ACCEPTED,
                                     httplib.FOUND,
@@ -308,6 +312,18 @@ class HALNavigator(object):
             n = n.expand(_keep_templated=ellipsis, **qargs)
         return n
 
+    @autofetch
+    def docsfor(self, rel):
+        '''Obtains the documentation for a link relation. Opens in a webbrowser
+        window'''
+        prefix, _rel = rel.split(':')
+        if prefix in self.curies:
+            doc_url = uritemplate.expand(self.curies[prefix], {'rel': _rel})
+        else:
+            doc_url = rel
+        print('opening', doc_url)
+        webbrowser.open(doc_url)
+
 
 class HALNavigatorError(Exception):
     '''Raised when a response is an error
@@ -326,5 +342,5 @@ class UnexpectedlyNotJSON(TypeError):
         self.msg = msg
         self.response = response
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: nocover
         return '{.msg}:\n\n\n{.response}'.format(self)
