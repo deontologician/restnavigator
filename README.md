@@ -196,10 +196,10 @@ To run tests, first install the [pytest framework](http://pytest.org/latest/gett
 $ pip install -U pytest
 ```
 
-To run tests, execute following in root of source directory:
+To run tests, execute following from the root of the source directory:
 
 ```
-$ pytest
+$ py.test
 ```
 
 ## Planned for the future
