@@ -189,6 +189,19 @@ HALNavigator(Haltalk.posts[523670eff0e6370002000001])
 * You can grab HTTP response headers with the `N.response.headers` attribute
 * You can grab your current session's headers with `N.session.headers`
 
+## Testing
+To run tests, first install the [pytest framework](http://pytest.org/latest/getting-started.html):
+
+```
+$ pip install -U pytest
+```
+
+To run tests, execute following in root of source directory:
+
+```
+$ pytest
+```
+
 ## Planned for the future
 * Specifying a curie as a default namespace. As long as the curie is defined on
   the resource you want, you don't need to specify it when indexing link rels
