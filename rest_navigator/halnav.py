@@ -12,8 +12,10 @@ import re
 import json
 import urlparse
 import webbrowser
+import urllib
 
 import requests
+import unidecode
 import uritemplate
 
 from rest_navigator import exc, utils
@@ -69,11 +71,14 @@ class HALNavigator(object):
         def path_clean(chunk):
             if not chunk:
                 return chunk
-            if re.match(r'\d+', chunk):
+            if re.match(r'\d+$', chunk):
                 return '[{}]'.format(chunk)
             else:
                 return '.' + chunk
-        path = ''.join(path_clean(c) for c in self.relative_uri.split('/'))
+        byte_arr = self.relative_uri.encode('utf-8')
+        unquoted = urllib.unquote(byte_arr).decode('utf-8')
+        nice_uri = unidecode.unidecode(unquoted)
+        path = ''.join(path_clean(c) for c in nice_uri.split('/'))
         return "HALNavigator({name}{path})".format(
                 name=self.apiname, path=path)
 

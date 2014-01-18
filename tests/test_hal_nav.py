@@ -104,11 +104,13 @@ def test_HALNAvigator__repr():
     with httprettify():
         index_uri = 'http://www.example.com/api/'
         first_uri = 'http://www.example.com/api/first'
-        next_uri = 'http://www.example.com/api/foos/123/bars/234'
+        next_uri = 'http://www.example.com/api/foos/123f/bars/234'
+        user_uri = 'http://www.example.com/api/users/ko%C5%BEu%C5%A1%C4%8Dek'
         last_uri = 'http://www.example.com/api/last'
         register_hal(index_uri, {'first': {'href': first_uri},
                                  'next': {'href': next_uri},
-                                 'last': {'href': last_uri}})
+                                 'last': {'href': last_uri},
+                                 'describes': {'href': user_uri}})
 
         N_1 = HN.HALNavigator(index_uri)
         assert repr(N_1) == "HALNavigator(ExampleAPI)"
@@ -116,8 +118,10 @@ def test_HALNAvigator__repr():
         assert repr(N) == "HALNavigator(exampleAPI)"
         assert repr(N['first']) == "HALNavigator(exampleAPI.first)"
         assert repr(N['next']) == \
-          "HALNavigator(exampleAPI.foos[123].bars[234])"
+            "HALNavigator(exampleAPI.foos.123f.bars[234])"
         assert repr(N['last']) == "HALNavigator(exampleAPI.last)"
+        assert repr(N['describes']) == \
+          "HALNavigator(exampleAPI.users.kozuscek)"
 
 
 def test_HALNavigator__links():

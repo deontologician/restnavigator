@@ -5,8 +5,11 @@ import urlparse
 import re
 import collections
 import itertools
+import urllib
 
-import exc
+import unidecode
+
+from rest_navigator import exc
 
 
 def fix_scheme(url):
@@ -71,6 +74,8 @@ def namify(root_uri):
     make sense in most circumstances. Used by Navigator's __repr__, but can be
     overridden if the Navigator is created with a 'name' parameter.'''
 
+    root_uri = unidecode.unidecode(urllib.unquote(root_uri).decode('utf-8'))
+
     generic_domains = set(['herokuapp', 'appspot'])
     urlp = urlparse.urlparse(fix_scheme(root_uri))
     formatargs = collections.defaultdict(list)
@@ -96,7 +101,7 @@ def namify(root_uri):
 
     def capify(s):
         '''Capitalizes the first letter of a string, but doesn't downcase the
-        reset like .title()'''
+        rest like .title()'''
         return s if not s else s[0].upper() + s[1:]
 
     def piece_filter(piece):

@@ -18,22 +18,19 @@ class PyTest(TestCommand):
 
 setup(
     name="rest_navigator",
-    version="0.1",
+    version="0.1.1",
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     license="MIT",
     packages=find_packages(),
     url="https://www.github.com/deontologician/rest_navigator",
-    install_requires=["requests==1.1.0",
-                      "uritemplate",
+    install_requires=["requests>=1.1.0, <=2.2.0",
+                      "uritemplate>=0.6.0",
+                      "Unidecode>=0.04.14",
                       ],
     tests_require=[
         "httpretty==0.6.0",
-        "pytest==2.3.5",
+        "pytest>=2.3.5, <=2.5.1",
     ],
     cmdclass={'test': PyTest},
-    dependency_links=[
-        'https://github.com/uri-templates/uritemplate-py/tarball/master'
-        '#egg=uritemplate-0.5.3',
-    ],
 )

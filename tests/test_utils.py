@@ -73,7 +73,10 @@ def test_slice_process():
     ('example.com?api=v2,x=3', 'ExampleX3API.v2'),
     ('googleapis.com/language/translate/v2', 'GoogleAPIsLanguageTranslate.v2'),
     ('haltalk.herokuapp.com/', 'Haltalk'),  # special case herokuapp.com
-    ('fooexample.appspot.com', 'Fooexample')  # special case appspot.com
+    ('fooexample.appspot.com', 'Fooexample'),  # special case appspot.com
+    ('example.com/ko%C5%BEu%C5%A1%C4%8Dek', 'ExampleKozuscek'),
+    ('example.com/%E3%82%AF%E3%83%AA%E3%83%BC%E3%82%AC%E3%83%BC',
+     'ExampleKuriga'),
 ])
 def test_namify(root_uri, expected):
     assert RNU.namify(root_uri) == expected
