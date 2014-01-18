@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 import collections
@@ -145,3 +146,37 @@ def test_LinkList__init_iterator(linklist):
     assert ll_iterated == ll_ctor
     # Non black-box test warning!
     assert ll_iterated._meta == ll_ctor._meta
+
+@pytest.fixture
+def unhashable_prop():
+    bad_value = ['bad_stuff']
+    prop_list = [('A', {'hi': 'there'}), ('B', {'bad': bad_value})]
+    return prop_list, bad_value
+
+
+def test_LinkList__get_by_unhashable_is_string(unhashable_prop):
+    prop_list, bad_value = unhashable_prop
+    test_list = RNU.LinkList(prop_list)
+    assert test_list.get_by('bad', str(bad_value)) == 'B'
+
+def test_LinkList__get_by_unhashable(unhashable_prop):
+    prop_list, bad_value = unhashable_prop
+    test_list = RNU.LinkList(prop_list)
+    assert test_list.get_by('bad', bad_value) == 'B'
+
+def test_LinkList__getall_by_unhashable(unhashable_prop):
+    prop_list, bad_value = unhashable_prop
+    test_list = RNU.LinkList(prop_list)
+    assert test_list.getall_by('bad', bad_value) == ['B']
+
+def test_LinkList__named_unhashable():
+    bad_value = {'totally': ['bad', 'key']}  # This normally should be hashable
+    prop_list = [('STILL_GOT_IT', {'name': bad_value})]
+    test_list = RNU.LinkList(prop_list)
+    assert test_list.named(bad_value) == 'STILL_GOT_IT'
+
+def test_LinkList__get_by_unicode_valu():
+    unicode_value = u'クリーガーさんは、私の桜がしおれている！'
+    prop_list = [('VALUE', {'title': unicode_value})]
+    test_list = RNU.LinkList(prop_list)
+    assert test_list.get_by('title', unicode_value) == 'VALUE'

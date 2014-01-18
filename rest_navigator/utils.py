@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 import urlparse
@@ -124,6 +125,7 @@ def namify(root_uri):
                                         vrsn=''.join(formatargs['version']),
                                         )
 
+
 class LinkList(list):
     '''A list subclass that offers different ways of grabbing the values based
     on various metadata stored for each entry in the dictionary.
@@ -139,9 +141,13 @@ class LinkList(list):
         for obj, properties in items:
             self.append_with(obj, **properties)
 
+    # Values coming in on properties might be unhashable, so we serialize them
+    serialize = staticmethod(unicode)  # json comes in as unicode
+
     def append_with(self, obj, **properties):
         '''Add an item to the dictionary with the given metadata properties'''
         for prop, val in properties.iteritems():
+            val = self.serialize(val)
             self._meta.setdefault(prop, {}).setdefault(val, []).append(obj)
         self.append(obj)
 
@@ -150,6 +156,7 @@ class LinkList(list):
         properties. If there is no such item, None will be returned, if there
         are multiple such items, the first will be returned.'''
         try:
+            val = self.serialize(val)
             return self._meta[prop][val][0]
         except (KeyError, IndexError):
             return None
@@ -157,10 +164,12 @@ class LinkList(list):
     def getall_by(self, prop, val):
         '''Retrieves all items from the dictionary with the given metadata'''
         try:
+            val = self.serialize(val)
             return self._meta[prop][val][:]  # return a copy of the list
         except KeyError:
             return []
 
     def named(self, name):
         '''Returns .get_by('name', name)'''
+        name = self.serialize(name)
         return self.get_by('name', name)
