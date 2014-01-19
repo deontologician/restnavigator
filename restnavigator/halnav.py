@@ -18,7 +18,7 @@ import requests
 import unidecode
 import uritemplate
 
-from rest_navigator import exc, utils
+from restnavigator import exc, utils
 
 
 def autofetch(fn):
@@ -163,7 +163,11 @@ class HALNavigator(object):
         self.state.pop('_links', None)
         self.state.pop('_embedded', None)
         if raise_exc and not self.response:
-            raise HALNavigatorError(msg=self.status, nav=self)
+            raise HALNavigatorError(self.response.text,
+                                    status=self.status,
+                                    nav=self,
+                                    response=self.response,
+                                    )
 
     def _copy(self, **kwargs):
         '''Creates a shallow copy of the HALNavigator that extra attributes can
@@ -229,7 +233,11 @@ class HALNavigator(object):
             self.uri, data=body, headers=headers, allow_redirects=False)
         if raise_exc and not response:
             raise HALNavigatorError(
-                msg=response.status_code, nav=self, response=response)
+                message=response.text,
+                status=response.status_code,
+                nav=self,
+                response=response,
+            )
         if response.status_code in (httplib.CREATED,
                                     httplib.ACCEPTED,
                                     httplib.FOUND,
@@ -336,9 +344,12 @@ class HALNavigatorError(Exception):
     Has all of the attributes of a normal HALNavigator. The error body can be
     returned by examining response.body '''
 
-    def __init__(self, *args, **kwargs):
-        self.nav = kwargs.pop('nav', None)
-        self.response = kwargs.pop('response', None)
+    def __init__(self, message, nav=None, status=None, response=None):
+        self.nav = nav
+        self.response = response
+        self.message = message
+        self.status = status
+        super(HALNavigatorError, self).__init__(message)
 
 
 class UnexpectedlyNotJSON(TypeError):

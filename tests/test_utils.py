@@ -5,7 +5,7 @@ import collections
 
 import pytest
 
-import rest_navigator.utils as RNU
+import restnavigator.utils as RNU
 
 # pylint: disable=E1101
 

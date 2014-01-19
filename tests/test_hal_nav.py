@@ -11,7 +11,7 @@ import string
 import uritemplate
 import requests.auth
 
-import rest_navigator.halnav as HN
+import restnavigator.halnav as HN
 
 # pylint: disable-msg=E1101
 

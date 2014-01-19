@@ -17,13 +17,16 @@ class PyTest(TestCommand):
 
 
 setup(
-    name="rest_navigator",
-    version="0.1.1",
+    name="restnavigator",
+    version="0.2.0",
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
+    description='A python library for interacting with HAL+JSON APIs',
+    url='https://github.com/deontologician/rest_navigator',
+    download='https://github.com/deontologician/rest_navigator/tarball/v0.2',
     license="MIT",
     packages=find_packages(),
-    url="https://www.github.com/deontologician/rest_navigator",
+    keywords=['REST', 'HAL', 'json', 'http'],
     install_requires=["requests>=1.1.0, <=2.2.0",
                       "uritemplate>=0.6.0",
                       "Unidecode>=0.04.14",

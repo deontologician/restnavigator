@@ -9,7 +9,7 @@ import urllib
 
 import unidecode
 
-from rest_navigator import exc
+from restnavigator import exc
 
 
 def fix_scheme(url):
