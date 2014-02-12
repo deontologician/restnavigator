@@ -4,11 +4,11 @@ python:
 # command to install dependencies
 install:
   - python setup.py install
-  - pip install pytest-cov
-  - pip install python-coveralls
   - pip install httpretty==0.6.0
+  - pip install coverage
+  - pip install python-coveralls
 # command to run tests
 script:
-  - py.test -v --cov=restnavigator/ --cov-report=term-missing
+  - coverage run --source=restnavigator/ setup.py test
 after-success:
   - coveralls

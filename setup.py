@@ -6,7 +6,7 @@ import sys
 class PyTest(TestCommand):
     def finalize_options(self):
         TestCommand.finalize_options(self)
-        self.test_args = []
+        self.test_args = ['--strict', '--verbose', '--tb=long', 'tests']
         self.test_suite = True
 
     def run_tests(self):
