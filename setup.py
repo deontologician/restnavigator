@@ -25,7 +25,7 @@ setup(
     url='https://github.com/deontologician/rest_navigator',
     download='https://github.com/deontologician/rest_navigator/tarball/v0.2',
     license="MIT",
-    packages=find_packages(),
+    packages=['restnavigator'],
     keywords=['REST', 'HAL', 'json', 'http'],
     install_requires=["requests>=1.1.0, <=2.2.0",
                       "uritemplate>=0.6.0",

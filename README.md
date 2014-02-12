@@ -22,7 +22,7 @@ links', rather than having the urls hardcoded).
 As an example, we'll connect to the haltalk api.
 
 ```python
->>> from rest_navigator import HALNavigator
+>>> from restnavigator import HALNavigator
 >>> N = HALNavigator('http://haltalk.herokuapp.com/', apiname="haltalk")
 >>> N
 HALNavigator(haltalk)
@@ -123,7 +123,7 @@ with a 400/500 status code if you want:
 ...    'real_name': 'Fred Wilson'
 ... }, raise_exc=False)
 >>> dup_signup
-HALNavigator(haltalk.signup)  # 400!
+ErrorNavigator(haltalk.signup)  # 400!
 >>> dup_signup.status
 (400, 'Bad Request')
 >>> dup_signup.state
@@ -151,12 +151,14 @@ equivalent, but people may prefer one over the other for aesthetic reasons:
 ```python
 >>> N['ht:me'].template_uri
 'http://haltalk.herokuapp.com/users/{name}'
->>> Nme_v1 = N['ht:me', 'name':'fred23']
->>> Nme_v1
+>>> Fred1 = N['ht:me', 'name':'fred23']
+>>> Fred1
 HALNavigator('haltalk.users.fred24')
->>> Nme_v2 = N['ht:me'].expand(name='fred23')  # equivalent to Nme_v1
->>> Nme_v2()
+>>> Fred2 = N['ht:me'].expand(name='fred23')  # equivalent to Fred1
+>>> Fred2()
 {'bio': None, 'real_name': 'Fred Wilson', 'username': 'fred23'}
+>>> Fred1 is Fred2  # HALNavigator keeps an identity cache of resources
+True
 ```
 
 In order to post something to haltalk, we need to authenticate with our newly
@@ -166,7 +168,7 @@ supports (so OAuth etc). For basic auth (which haltalk uses), we can just pass a
 tuple.
 
 ```python
->>> N.authenticate(('fred23', 'pwnme'))
+>>> N.authenticate(('fred23', 'pwnme'))  # All subsequent calls are authenticated
 ```
 
 Now we can actually create a new post:

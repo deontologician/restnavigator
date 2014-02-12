@@ -3,5 +3,5 @@
 .#*
 .coverage
 htmlcov
-scripts/
 .pyflymakerc*
+dist/
