@@ -9,6 +9,6 @@ install:
   - pip install httpretty==0.6.0
 # command to run tests
 script:
-  - py.test --pep8 restnavigator -v --cov restnavigator --cov-report term-missing
+  - py.test restnavigator -v --cov restnavigator --cov-report term-missing
 after-success:
   - coveralls
