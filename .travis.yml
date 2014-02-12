@@ -6,7 +6,7 @@ install:
   - python setup.py install
   - pip install httpretty==0.6.0
   - pip install coverage
-  - pip install python-coveralls
+  - pip install coveralls
 # command to run tests
 script:
   - coverage run --source=restnavigator/ setup.py test
