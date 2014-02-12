@@ -33,7 +33,7 @@ setup(
                       ],
     tests_require=[
         "httpretty==0.6.0",
-        "pytest>=2.3.5, <=2.5.1",
+        "pytest>=2.3.5, <2.6",
     ],
     cmdclass={'test': PyTest},
 )
