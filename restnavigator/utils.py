@@ -17,11 +17,12 @@ def fix_scheme(url):
     other than http is used'''
     splitted = url.split('://')
     if len(splitted) == 2:
-        if splitted[0] == 'http':
+        if splitted[0] in ('http', 'https'):
             return url
         else:
             raise exc.WileECoyoteException(
-                'Bad scheme! Got: {}, expected http'.format(splitted[0]))
+                'Bad scheme! Got: {}, expected http or https'.format(
+                    splitted[0]))
     elif len(splitted) == 1:
         return 'http://' + url
     else:

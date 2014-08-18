@@ -26,6 +26,8 @@ def blank(request):
 
 def test_fix_scheme():
     assert RNU.fix_scheme('http://www.example.com') == 'http://www.example.com'
+    assert RNU.fix_scheme('https://www.example.com') == \
+        'https://www.example.com'
     assert RNU.fix_scheme('www.example.com') == 'http://www.example.com'
     with pytest.raises(ValueError):
         RNU.fix_scheme('ftp://www.example.com')
