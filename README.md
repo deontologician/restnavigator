@@ -113,7 +113,7 @@ HALNavigator(haltalk.users.fred23)
 If the user name had already been in use, a 400 would have been returned from
 the haltalk api. Using the Zen of Python guideline "Errors should never pass
 silently." an exception would have been raised on a 400 or 500 status code. You
-can squelch this exception and just have the post call return a HALNavigator
+can squelch this exception and just have the post call return a `HALNavigator`
 with a 400/500 status code if you want:
 
 ```python
@@ -131,8 +131,7 @@ ErrorNavigator(haltalk.signup)  # 400!
 ```
 
 Now that we've signed up, lets take a look at our profile. The link for a user's
-profile is a templated link, which we can tell because its repr has a '*'
-character after it. You can also tell by the .parameters attribute:
+profile is a templated link, which we can tell because its repr has `{}` in it. You can also tell by the `.parameters` attribute:
 
 ```python
 >>> N.links.keys()
@@ -153,7 +152,7 @@ equivalent, but people may prefer one over the other for aesthetic reasons:
 'http://haltalk.herokuapp.com/users/{name}'
 >>> Fred1 = N['ht:me', 'name':'fred23']
 >>> Fred1
-HALNavigator('haltalk.users.fred24')
+HALNavigator('haltalk.users.fred23')
 >>> Fred2 = N['ht:me'].expand(name='fred23')  # equivalent to Fred1
 >>> Fred2()
 {'bio': None, 'real_name': 'Fred Wilson', 'username': 'fred23'}
@@ -181,10 +180,11 @@ HALNavigator(Haltalk.posts[523670eff0e6370002000001])
 {'content': 'My first post', 'created_at': '2013-06-26T03:19:52+00:00'}
 ```
 
-## More:
+## Other features:
 
 * You don't need to worry about inadvertently having two different navigators
-  pointing to the same resource. Both will use the same underlying representation
+  pointing to the same resource. restnavigator will reuse the existing navigator
+  instead of creating a new one
 * If a resource has a link with the rel "next", the navigator for that resource
   can be used as a python iterator. It will automatically raise a StopIteration
   exception if a resource in the chain does not have a next link. This makes
