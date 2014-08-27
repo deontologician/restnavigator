@@ -18,7 +18,7 @@ class PyTest(TestCommand):
 
 setup(
     name="restnavigator",
-    version="0.2.0",
+    version="0.2.1",
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     description='A python library for interacting with HAL+JSON APIs',
