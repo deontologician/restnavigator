@@ -595,8 +595,8 @@ def test_HALNavigator__create(redirect_status, post_body):
             assert N2.uri == new_resource_uri
             assert not N2.fetched
         else:
-            assert N2[0] == redirect_status
-            assert N2[1].headers['location'] == new_resource_uri
+            assert N2.status_code == redirect_status
+            assert N2.headers['location'] == new_resource_uri
 
 
 def test_HALNavigator__relative_links():

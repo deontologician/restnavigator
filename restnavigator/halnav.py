@@ -245,7 +245,7 @@ class HALNavigator(object):
                                     ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
         else:
-            return (response.status_code, response)
+            return response
 
     def __iter__(self):
         '''Part of iteration protocol'''
