@@ -567,7 +567,6 @@ def test_HALNavigator__fetch():
 @pytest.mark.parametrize(('redirect_status', 'post_body'), [
     (302, {'name': 'foo'}),
     (303, {'name': 'foo'}),
-    (204, {'name': 'foo'}),
     (201, {'name': 'foo'}),
     (202, {'name': 'foo'}),
     (303, '{"name":"foo"}'),
@@ -591,12 +590,55 @@ def test_HALNavigator__create(redirect_status, post_body):
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
         assert HTTPretty.last_request.body == '{"name":"foo"}'
-        if redirect_status in (201, 202, 302, 303):
-            assert N2.uri == new_resource_uri
-            assert not N2.fetched
-        else:
-            assert N2.status_code == redirect_status
-            assert N2.headers['location'] == new_resource_uri
+        assert N2.uri == new_resource_uri
+        assert not N2.fetched
+
+@pytest.mark.parametrize(('status', 'body', 'content_type'), [
+    (200, 'hi there', 'text/plain'),
+    (200, '{"hi": "there"}', 'application/json'),
+    (200,
+     json.dumps({'_links': {'alternate': {'href': '/hogo'}}}),
+     'application/hal+json'),
+    (204, '', 'text/plain'),
+])
+def test_PostResponse__basic(status, body, content_type):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        hosts_uri = index_uri + 'hosts'
+        index_links = {'hosts': {'href': hosts_uri}}
+        register_hal(index_uri, index_links)
+        HTTPretty.register_uri(
+            'POST',
+            uri=hosts_uri,
+            status=status,
+            body=body,
+            content_type=content_type,
+        )
+
+        N = HN.HALNavigator(index_uri)
+        N2 = N['hosts']
+        PR = N2.create({})  # PR = PostResponse
+
+        assert isinstance(PR, HN.PostResponse)
+        assert PR.status[0] == status
+        assert PR.parent is N2
+        with pytest.raises(NotImplementedError):
+            PR()
+        with pytest.raises(NotImplementedError):
+            PR.fetch()
+        with pytest.raises(NotImplementedError):
+            PR.create({'values': True, 'hi': 'there'})
+        if status == 200 and content_type == 'text/plain':
+            assert PR.state == {}
+            assert PR.response.text == 'hi there'
+        elif content_type == 'application/json':
+            assert PR.state == {'hi': 'there'}
+        elif content_type == 'application/hal+json':
+            assert 'alternate' in PR.links
+            assert PR.links['alternate'].uri == 'http://www.example.com/hogo'
+        elif status == 204:
+            assert PR.state == {}
+            assert PR.links == {}
 
 
 def test_HALNavigator__relative_links():

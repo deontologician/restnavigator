@@ -27,7 +27,7 @@ def autofetch(fn):
 
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
-        if self.response is None:
+        if self.idempotent and self.response is None:
             self._GET()
         return fn(self, *args, **qargs)
     return wrapped
@@ -39,8 +39,16 @@ def default_headers():
             'User-Agent': 'HALNavigator/{}'.format(__version__)}
 
 
+def get_state(hal_body):
+    '''Removes HAL special properties from a HAL+JSON response'''
+    return {k: v for k, v in hal_body.iteritems()
+            if k not in ['_links', '_embedded']}
+
 class HALNavigator(object):
     '''The main navigation entity'''
+
+    # See PostResponse for a non-idempotent Navigator
+    idempotent = True
 
     def __init__(
             self, root, apiname=None, auth=None, headers=None, session=None):
@@ -67,6 +75,10 @@ class HALNavigator(object):
         # HALNavigator
         self._id_map = WeakValueDictionary({self.root: self})
 
+    @property
+    def cacheable(self):
+        return self.idempotent and not self.templated
+
     def __repr__(self):
         def path_clean(chunk):
             if not chunk:
@@ -79,8 +91,8 @@ class HALNavigator(object):
         unquoted = urllib.unquote(byte_arr).decode('utf-8')
         nice_uri = unidecode.unidecode(unquoted)
         path = ''.join(path_clean(c) for c in nice_uri.split('/'))
-        return "HALNavigator({name}{path})".format(
-                name=self.apiname, path=path)
+        return "{cls}({name}{path})".format(
+                cls=type(self).__name__, name=self.apiname, path=path)
 
     def authenticate(self, auth):
         '''Allows setting authentication for future requests to the api'''
@@ -108,22 +120,8 @@ class HALNavigator(object):
         if self.response is not None:
             return (self.response.status_code, self.response.reason)
 
-    def _GET(self, raise_exc=True):
-        r'''Handles GET requests for a resource'''
-        if self.templated:
-            raise exc.AmbiguousNavigationError(
-                'This is a templated Navigator. You must provide values for '
-                'the template parameters before fetching the resource or else '
-                'explicitly null them out with the syntax: N[:]')
-        self.response = self.session.get(self.uri)
-        try:
-            body = self.response.json()
-        except ValueError as e:
-            if raise_exc:
-                raise UnexpectedlyNotJSON(
-                    "The resource at {.uri} wasn't valid JSON", self.response)
-            else:
-                return
+    def _make_links_from(self, body):
+        '''Creates linked navigators from a HAL response body'''
 
         def make_nav(link):
             '''Crafts the Navigators for each link'''
@@ -136,32 +134,49 @@ class HALNavigator(object):
             else:
                 uri = None
                 template_uri = urlparse.urljoin(self.uri, link['href'])
-            cp = self._copy(uri=uri,
-                            template_uri=template_uri,
-                            templated=templated,
-                            title=link.get('title'),
-                            type=link.get('type'),
-                            profile=link.get('profile'),
-                            )
+            cp = self._copy(
+                uri=uri,
+                template_uri=template_uri,
+                templated=templated,
+                title=link.get('title'),
+                type=link.get('type'),
+                profile=link.get('profile'),
+            )
             if templated:
                 cp.uri = None
                 cp.parameters = uritemplate.variables(cp.template_uri)
             else:
                 cp.template_uri = None
             return cp
-        self._links = {}
-        for rel, links in body.get('_links', {}).iteritems():
-            if rel not in ('self', 'curies'):
-                self._links[rel] = make_nav(links)
-        self.title = body.get('_links', {}).get('self', {}).get(
-            'title', self.title)
+
+        return {rel: make_nav(links)
+                for rel, links in body.get('_links', {}).iteritems()
+                if rel not in ['self', 'curies']}
+
+    def _GET(self, raise_exc=True):
+        r'''Handles GET requests for a resource'''
+        if self.templated:
+            raise exc.AmbiguousNavigationError(
+                'This is a templated Navigator. You must provide values for '
+                'the template parameters before fetching the resource or else '
+                'explicitly null them out with the syntax: N[:]')
+        self.response = self.session.get(self.uri)
+        try:
+            body = json.loads(self.response.text)
+        except ValueError as e:
+            if raise_exc:
+                raise UnexpectedlyNotJSON(
+                    "The resource at {.uri} wasn't valid JSON", self.response)
+            else:
+                return
+        self._links = self._make_links_from(body)
+        self.title = (body.get('_links', {})
+                      .get('self', {})
+                      .get('title', self.title))
         if 'curies' in body.get('_links', {}):
             curies = body['_links']['curies']
             self.curies = {curie['name']: curie['href'] for curie in curies}
-        self.state = {k: v for k, v in self.response.json().iteritems()
-                      if k not in ('_links', '_embedded')}
-        self.state.pop('_links', None)
-        self.state.pop('_embedded', None)
+        self.state = get_state(body)
         if raise_exc and not self.response:
             raise HALNavigatorError(self.response.text,
                                     status=self.status,
@@ -187,7 +202,7 @@ class HALNavigator(object):
         for attr, val in kwargs.iteritems():
             if val is not None:
                 setattr(cp, attr, val)
-        if not cp.templated:
+        if cp.cacheable:
             self._id_map[cp.uri] = cp
         return cp
 
@@ -245,7 +260,7 @@ class HALNavigator(object):
                                     ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
         else:
-            return response
+            return PostResponse(parent=self, response=response)
 
     def __iter__(self):
         '''Part of iteration protocol'''
@@ -336,6 +351,57 @@ class HALNavigator(object):
             doc_url = rel
         print('opening', doc_url)
         webbrowser.open(doc_url)
+
+class PostResponse(HALNavigator):
+    '''A Special Navigator that is the result of a POST
+
+    This Navigator cannot be fetched or created, but has a special
+    property called `.parent` that refers to the Navigator this one
+    was created from. If the result of the POST is a HAL document,
+    this object's `.links` property will be populated.
+
+    '''
+
+    idempotent = False
+
+    def __init__(self, parent, response):
+        self.parent = parent
+        self.root = parent.root
+        self.apiname = parent.apiname
+        self.uri = parent.uri
+        self.profile = parent.profile
+        self.title = parent.title
+        self.type = response.headers['Content-Type']
+        self.curies = parent.curies
+        self.session = parent.session
+        self.response = response
+        self.template_uri = parent.template_uri
+        self.template_args = parent.template_args
+        self.parameters = None  # POST doesn't have parameters
+        self.templated = False  # PostResponse can't be templated
+        self._id_map = parent._id_map
+        try:
+            body = json.loads(response.text)
+            self.state = get_state(body)
+            self._links = parent._make_links_from(body)
+        except ValueError:
+            self.state = {}
+            self._links = {}
+
+
+    def fetch(self, *args, **kwargs):
+        raise NotImplementedError(
+            'Cannot fetch a non-idempotent resource. '
+            'Maybe you want this object\'s .parent attribute, '
+            'or possibly one of the resources in .links')
+
+    __call__ = fetch
+
+    def create(self, *args, **kwargs):
+        raise NotImplementedError(
+            'Cannot create a non-idempotent resource. '
+            'Maybe you want this object\'s .parent attribute, '
+            'or possibly one of the resources in .links')
 
 
 class HALNavigatorError(Exception):
