@@ -66,7 +66,7 @@ Let's look at those:
 Here we can see that the links are organized by their relation type (the key), and each key corresponds to a new HALNavigator that represents some other resource.
 Relation types are extremely important in restful apis: we need them to be able to determine what a link means in relation to the current resource, in a way that is automatable.
 
-## GET requests
+### GET requests
 
 In addition, the root has some state associated with it which you can get in two different ways:
 
@@ -113,7 +113,7 @@ If you need a more robust way to browse the api and the documentation, [HAL Brow
 
 [HAL Browser]: https://github.com/mikekelly/hal-browser
 
-### Post requests
+### POST requests
 
 The docs for `ht:signup` explain the format of the POST request to sign up.
 So let's actually sign up (Note: haltalk is a toy api for example purposes, don't ever send plaintext passwords over an unencrypted connection in a real app!):
