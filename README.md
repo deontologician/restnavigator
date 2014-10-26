@@ -3,21 +3,40 @@
 [![Build Status](https://travis-ci.org/deontologician/rest_navigator.png?branch=master)](https://travis-ci.org/deontologician/rest_navigator)
 [![Coverage Status](https://coveralls.io/repos/deontologician/rest_navigator/badge.png?branch=master)](https://coveralls.io/r/deontologician/rest_navigator?branch=master)
 
-REST Navigator is a python library for interacting with
-([level 3](http://martinfowler.com/articles/richardsonMaturityModel.html#level3))
-HTTP REST (hypermedia) apis with some defined hyperlinking relations. Initially,
-it only supports [HAL+JSON](http://tools.ietf.org/html/draft-kelly-json-hal-05)
-but it should be general enough to extend to other formats eventually. Its first
-goal is to make interacting with HAL hypermedia apis as painless as possible,
-while discouraging REST anti-patterns.
+REST Navigator is a python library for interacting with hypermedia apis ([REST level 3][]).
+Right now, it only supports [HAL+JSON][] but it should be general enough to extend to other formats eventually.
+Its first goal is to make interacting with HAL hypermedia apis as painless as possible, while discouraging REST anti-patterns.
 
-# How to use it
+[REST level 3]: http://martinfowler.com/articles/richardsonMaturityModel.html#level3
+[HAL+JSON]: http://tools.ietf.org/html/draft-kelly-json-hal-05
 
-To begin interacting with a HAL api, you've got to create a HALNavigator that
-points to the api root. Ideally, in a hypermedia API, the root URL is the only
-URL that needs to be hardcoded in your application. All other URLs are obtained
-from the api responses themselves (think of your api client as 'clicking on
-links', rather than having the urls hardcoded).
+## Contents
+
+- [How to use it](#how-to-use-it)
+    - [Links](#links)
+- [GET requests](#get-requests)
+    - [Link relation docs](#link-relation-docs)
+    - [Post requests](#post-requests)
+    - [Errors](#errors)
+    - [Templated links](#templated-links)
+    - [Authentication](#authentication)
+- [Additional Topics](#additional-topics)
+    - [Identity Map](#identity-map)
+    - [Iterating over a Navigator](#iterating-over-a-navigator)
+    - [Headers (Request vs. Response)](#headers-request-vs-response)
+    - [Bracket mini-language](#bracket-minilanguage)
+    - [Caching](#caching)
+- [Development](#development)
+    - [Testing](#testing)
+    - [Planned for the future](#planned-for-the-future)
+
+<!-- end toc -->
+
+## How to use it
+
+To begin interacting with a HAL api, you've got to create a HALNavigator that points to the api root.
+Ideally, in a hypermedia API, the root URL is the only URL that needs to be hardcoded in your application.
+All other URLs are obtained from the api responses themselves (think of your api client as 'clicking on links', rather than having the urls hardcoded).
 
 As an example, we'll connect to the haltalk api.
 
@@ -28,8 +47,10 @@ As an example, we'll connect to the haltalk api.
 HALNavigator(haltalk)
 ```
 
-Usually, with the index (normally at the api root), you're most interested in
-the links. Let's look at those:
+### Links
+
+Usually, with the index (normally at the api root), you're most interested in the links.
+Let's look at those:
 
 ```python
 >>> N.links
@@ -40,17 +61,14 @@ the links. Let's look at those:
 }
 ```
 
-(This may take a moment because asking for the links causes the HALNavigator to
-actually request the resource from the server).
+(This may take a moment because asking for the links causes the HALNavigator to actually request the resource from the server).
 
-Here we can see that the links are organized by their relation type (the key),
-and each key corresponds to a new HALNavigator that represents some other
-resource. Relation types are extremely important in restful apis: we need them
-to be able to determine what a link means in relation to the current resource,
-in a way that is automatable.
+Here we can see that the links are organized by their relation type (the key), and each key corresponds to a new HALNavigator that represents some other resource.
+Relation types are extremely important in restful apis: we need them to be able to determine what a link means in relation to the current resource, in a way that is automatable.
 
-In addition, the root has some state associated with it which you can get in two
-different ways:
+## GET requests
+
+In addition, the root has some state associated with it which you can get in two different ways:
 
 ```python
 >>> N() # cached state of resource (obtained when we looked at N.links)
@@ -69,36 +87,36 @@ different ways:
  u'welcome': u'Welcome to a haltalk server.'}
 ```
 
-Calling a HALNavigator will execute a GET request against the resource and
-returns its value (which it will cache).
+Calling a HALNavigator will execute a GET request against the resource and returns its value (which it will cache).
 
-Let's register a hal talk account. Unfortunately, we don't really know how to do
-that, so let's look at the documentation. The `ht:signup` link looks promising,
-let's check that:
+### Link relation docs
+
+Let's register a hal talk account.
+Unfortunately, we don't really know how to do that, so let's look at the documentation.
+The `ht:signup` link looks promising, let's check that:
 
 ```python
 >>> N.docsfor('ht:signup')
-# a browser opens http://haltalk.herokuapp.com/rels/signup
 ```
 
-What? Popping up a browser from a library call? Yes, that's how rest_navigator
-rolls. You see, the docs are for humans, and while custom rel-types are URIs,
-they shouldn't automatically be dereferenced by a program that interacts with
-the api. So popping up a browser serves two purposes:
+A browser will open to http://haltalk.herokuapp.com/rels/signup.
 
-  1. It allows easy access to the documentation at the time when you most need
-  it: when you're mucking about in the command line trying to figure out how to
-  interact with the api.
-  2. It reminds you not to try to automatically dereference the rel
-  documentation and parse it in your application.
+What? Popping up a browser from a library call?
+Yes, that's how rest_navigator rolls.
+The way we see it: docs are for humans, and while custom rel-types are URIs, they shouldn't automatically be dereferenced by a program that interacts with the api.
+So popping up a browser serves two purposes:
 
-If you need a more robust way to browse the api and the documentation,
-[HAL Browser](https://github.com/mikekelly/hal-browser) is probably your best
-bet.
+  1. It allows easy access to the documentation at the time when you most need it: when you're mucking about in the command line trying to figure out how to interact with the api.
+  2. It reminds you not to try to automatically dereference the rel documentation and parse it in your application.
 
-The docs for `ht:signup` explain the format of the POST request to sign up. So
-let's actually sign up (Note: haltalk is a toy api for example purposes, don't
-ever send plaintext passwords over an unencrypted connection in a real app!):
+If you need a more robust way to browse the api and the documentation, [HAL Browser][] is probably your best bet.
+
+[HAL Browser]: https://github.com/mikekelly/hal-browser
+
+### Post requests
+
+The docs for `ht:signup` explain the format of the POST request to sign up.
+So let's actually sign up (Note: haltalk is a toy api for example purposes, don't ever send plaintext passwords over an unencrypted connection in a real app!):
 
 ```python
 >>> fred23 = N['ht:signup'].create(
@@ -110,11 +128,12 @@ ever send plaintext passwords over an unencrypted connection in a real app!):
 HALNavigator(haltalk.users.fred23)
 ```
 
-If the user name had already been in use, a 400 would have been returned from
-the haltalk api. Using the Zen of Python guideline "Errors should never pass
-silently." an exception would have been raised on a 400 or 500 status code. You
-can squelch this exception and just have the post call return a `HALNavigator`
-with a 400/500 status code if you want:
+### Errors
+
+If the user name had already been in use, a 400 would have been returned from the haltalk api.
+rest_navigator follows the Zen of Python guideline "Errors should never pass silently".
+An exception would have been raised on a 400 or 500 status code.
+You can squelch this exception and just have the post call return a `HALNavigator` with a 400/500 status code if you want:
 
 ```python
 >>> dup_signup = N['ht:signup'].create({
@@ -130,8 +149,11 @@ ErrorNavigator(haltalk.signup)  # 400!
 {"errors": {"username": ["is already taken"]}}
 ```
 
-Now that we've signed up, lets take a look at our profile. The link for a user's
-profile is a templated link, which we can tell because its repr has `{}` in it. You can also tell by the `.parameters` attribute:
+### Templated links
+
+Now that we've signed up, lets take a look at our profile.
+The link for a user's profile is a templated link, which we can tell because its repr has `{}` in it.
+You can also tell by the `.parameters` attribute:
 
 ```python
 >>> N.links.keys()
@@ -142,10 +164,9 @@ HALNavigator(haltalk.users.{name})
 set(['name'])
 ```
 
-The documentation for the `ht:me` rel type should tell us how the name parameter
-is supposed to work, but in this case it's fairly obvious (plug in the
-username). There are two ways you can input template parameters. Both are
-equivalent, but people may prefer one over the other for aesthetic reasons:
+The documentation for the `ht:me` rel type should tell us how the name parameteris supposed to work, but in this case it's fairly obvious (plug in the username).
+There are two ways you can input template parameters.
+Both are equivalent, but people may prefer one over the other for aesthetic reasons:
 
 ```python
 >>> N['ht:me'].template_uri
@@ -160,11 +181,13 @@ HALNavigator('haltalk.users.fred23')
 True
 ```
 
-In order to post something to haltalk, we need to authenticate with our newly
-created account. HALNavigator allows any authentication method that
-[requests](http://www.python-requests.org/en/latest/user/advanced/#custom-authentication)
-supports (so OAuth etc). For basic auth (which haltalk uses), we can just pass a
-tuple.
+### Authentication
+
+In order to post something to haltalk, we need to authenticate with our newly created account.
+HALNavigator allows any [authentication method that requests supports][] (so OAuth etc).
+For basic auth (which haltalk uses), we can just pass a tuple.
+
+[authentication method requests supports]: http://www.python-requests.org/en/latest/user/advanced/#custom-authentication
 
 ```python
 >>> N.authenticate(('fred23', 'pwnme'))  # All subsequent calls are authenticated
@@ -177,23 +200,128 @@ Now we can actually create a new post:
 >>> N_post
 HALNavigator(Haltalk.posts[523670eff0e6370002000001])
 >>> N_post()
-{'content': 'My first post', 'created_at': '2013-06-26T03:19:52+00:00'}
+{'content': 'My first post', 'created_at': '2014-06-26T03:19:52+00:00'}
 ```
 
-## Other features:
+## Additional Topics
 
-* You don't need to worry about inadvertently having two different navigators
-  pointing to the same resource. restnavigator will reuse the existing navigator
-  instead of creating a new one
-* If a resource has a link with the rel "next", the navigator for that resource
-  can be used as a python iterator. It will automatically raise a StopIteration
-  exception if a resource in the chain does not have a next link. This makes
-  moving through paged resources really simple and pythonic.
-* You can grab HTTP response headers with the `N.response.headers` attribute
-* You can grab your current session's headers with `N.session.headers`
+### Identity Map
 
-## Testing
-To run tests, first install the [pytest framework](http://pytest.org/latest/getting-started.html):
+You don't need to worry about inadvertently having two different navigators pointing to the same resource.
+rest_navigator will reuse the existing navigator instead of creating a new one
+
+### Iterating over a Navigator
+
+If a resource has a link with the rel "next", the navigator for that resource can be used as a python iterator.
+It will automatically raise a StopIteration exception if a resource in the chain does not have a next link.
+This makes moving through paged resources really simple and pythonic:
+
+```python
+post_navigator = N['ht:posts']
+for post in posts_navigator:
+    # the first post will be post_navigator itself
+    print(post.state)
+```
+
+### Headers (Request vs. Response)
+
+HTTP response headers are available in `N.response.headers`
+
+Headers that will be sent on each request can be obtained through the session:
+
+```python
+>>> N.session.headers
+# Cookies, etc
+```
+
+### Bracket mini-language
+
+The bracket (`[]`) operator on Navigators has a lot of power.
+As we saw earlier, the main use is to get a new Navigator from a link relation:
+
+```python
+>>> N2 = N['curie:link_rel']
+```
+
+But, it can also go more than one link deep, which is equivalent to using multiple brackets in a row:
+
+```python
+>>> N3 = N['curie:first_link', 'curie:second_link']
+# equivalent to:
+N3 = N['curie:first_link']['curie:second_link']
+```
+
+Another usage shown above is filling out templated links:
+
+```python
+>>> N['curie:posts'].template_uri
+"http://example.com/api/posts{?page}"
+>>> N['curie:posts'].templated
+True
+>>> N['curie:posts', 'page':3].uri
+"http://example.com/api/posts?page=3"
+>>> N['curie:posts'].expand(page=3).uri
+"http://example.com/api/posts?page=3"
+>>> N['curie:posts', 'page':3].templated
+False
+```
+
+If you have a templated Navigator and you want to quickly fill in its template parameters with nothing, you can use this syntax:
+
+```python
+>>> N['curie:posts', :].templated
+False
+>>> N['curie:posts', :].uri
+"http://example.com/api/posts"
+```
+
+Similarly, if you have a templated Navigator and would like to fill in some of the parameters but leave the other parameters for later:
+
+```python
+>>> N['curie:posts'].template_uri
+"http://example.com/api/posts{?page,size}
+>>> N['curie:posts', 'page':3]
+"http://example.com/api/posts?page=3"
+>>> N['curie:posts', page:3].templated
+False
+>>> N['curie:posts', page:3, ...].templated
+True
+>>> partial = N['curie:posts', page:3, ...]
+>>> partial['size':12].uri
+"http://example.com/api/posts?page=3,size=12"
+```
+
+These tricks aren't necessary all of the time, but they can be very handy in the right situation.
+
+### Caching
+
+rest_navigator allows you to enable http caching with the [cachecontrol][] library.
+You can enable it with the `cache` argument when initializing your Navigator:
+
+```python
+>>> N = HALNavigator('example.com/api', cache=True)
+```
+
+This may be enabled by default in the future, but for now it's opt-in.
+
+You can also provide your own `CacheControlAdapter` if you need fine grained control over caching behavior:
+
+```python
+>>> from cachecontrol import CacheControlAdapter
+>>> cache_adapter = CacheControlAdapter(cache_etags=False)
+>>> N = HALNavigator('example.com/api', cache=cache_adapter)
+```
+
+For more details, check out the [cachecontrol documentation][].
+
+[cachecontrol]: https://github.com/ionrock/cachecontrol
+[cachecontrol documentation]: http://cachecontrol.readthedocs.org/en/latest/index.html
+
+## Development
+### Testing
+To run tests, first install the [pytest framework][]:
+
+[pytest framework]: http://pytest.org/latest/getting-started.html
 
 ```
 $ pip install -U pytest
@@ -205,7 +333,8 @@ To run tests, execute following from the root of the source directory:
 $ py.test
 ```
 
-## Planned for the future
+### Planned for the future
+
 * Specifying a curie as a default namespace. As long as the curie is defined on
   the resource you want, you don't need to specify it when indexing link rels
 * Ability to add hooks for different types, rels and profiles. If a link has one
