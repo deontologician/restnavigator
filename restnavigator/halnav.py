@@ -16,6 +16,7 @@ import webbrowser
 import urllib
 
 import requests
+import cachecontrol
 import unidecode
 import uritemplate
 
@@ -51,8 +52,13 @@ class HALNavigator(object):
     # See PostResponse for a non-idempotent Navigator
     idempotent = True
 
-    def __init__(
-            self, root, apiname=None, auth=None, headers=None, session=None):
+    def __init__(self, root,
+                 apiname=None,
+                 auth=None,
+                 headers=None,
+                 session=None,
+                 cache=False,
+    ):
         self.root = utils.fix_scheme(root)
         self.apiname = utils.namify(root) if apiname is None else apiname
         self.uri = self.root
@@ -61,6 +67,13 @@ class HALNavigator(object):
         self.type = 'application/hal+json'
         self.curies = None
         self.session = session or requests.Session()
+        if cache:
+            if isinstance(cache, cachecontrol.CacheControlAdapter):
+                cc = cache
+            else:
+                cc = cachecontrol.CacheControlAdapter()
+            self.session.mount('http://', cc)
+            self.session.mount('https://', cc)
         self.session.auth = auth
         self.session.headers.update(default_headers())
         if headers:
@@ -264,6 +277,7 @@ class HALNavigator(object):
 
     def __iter__(self):
         '''Part of iteration protocol'''
+        yield self
         last = self
         while True:
             current = last.next()

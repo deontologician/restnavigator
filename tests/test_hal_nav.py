@@ -201,7 +201,7 @@ def test_HALNavigator__iteration():
     r'''Test that a navigator with 'next' links can be used for iteration'''
     with httprettify():
         index_uri = 'http://www.example.com/'
-        index_links = {'next': {'href': index_uri + '1'}}
+        index_links = {'first': {'href': index_uri + '1'}}
         register_hal(index_uri, index_links)
         for i in xrange(1, 11):
             page_uri = index_uri + str(i)
@@ -212,10 +212,14 @@ def test_HALNavigator__iteration():
             register_hal(page_uri, page_links)
 
         N = HN.HALNavigator(index_uri)
+        Nitems = N['first']
         captured = []
-        for i, nav in enumerate(N, start=1):
-            assert isinstance(nav, HN.HALNavigator)
-            assert nav.uri == index_uri + str(i)
+        for i, nav in enumerate(Nitems, start=1):
+            if i == 0:
+                assert nav is Nitems
+            else:
+                assert isinstance(nav, HN.HALNavigator)
+                assert nav.uri == index_uri + str(i)
             captured.append(nav)
         assert len(captured) == 10
 
