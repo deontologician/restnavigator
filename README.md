@@ -14,9 +14,9 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
 
 - [How to use it](#how-to-use-it)
     - [Links](#links)
-- [GET requests](#get-requests)
+    - [GET requests](#get-requests)
     - [Link relation docs](#link-relation-docs)
-    - [Post requests](#post-requests)
+    - [POST requests](#post-requests)
     - [Errors](#errors)
     - [Templated links](#templated-links)
     - [Authentication](#authentication)
