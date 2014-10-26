@@ -1,6 +1,7 @@
 '''A library to allow navigating rest apis easy.'''
 
 from __future__ import print_function
+from __future__ import unicode_literals
 
 __version__ = '0.2'
 
@@ -28,7 +29,7 @@ def autofetch(fn):
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
         if self.idempotent and self.response is None:
-            self._GET()
+            self.fetch(raise_exc=qargs.get('raise_exc', False))
         return fn(self, *args, **qargs)
     return wrapped
 
@@ -77,6 +78,7 @@ class HALNavigator(object):
 
     @property
     def cacheable(self):
+        '''Whether this Navigator can be cached'''
         return self.idempotent and not self.templated
 
     def __repr__(self):
@@ -153,8 +155,9 @@ class HALNavigator(object):
                 for rel, links in body.get('_links', {}).iteritems()
                 if rel not in ['self', 'curies']}
 
-    def _GET(self, raise_exc=True):
-        r'''Handles GET requests for a resource'''
+
+    def fetch(self, raise_exc=True):
+        '''Like __call__, but doesn't cache, always makes the request'''
         if self.templated:
             raise exc.AmbiguousNavigationError(
                 'This is a templated Navigator. You must provide values for '
@@ -163,7 +166,7 @@ class HALNavigator(object):
         self.response = self.session.get(self.uri)
         try:
             body = json.loads(self.response.text)
-        except ValueError as e:
+        except ValueError:
             if raise_exc:
                 raise UnexpectedlyNotJSON(
                     "The resource at {.uri} wasn't valid JSON", self.response)
@@ -183,6 +186,7 @@ class HALNavigator(object):
                                     nav=self,
                                     response=self.response,
                                     )
+        return self.state.copy()
 
     def _copy(self, **kwargs):
         '''Creates a shallow copy of the HALNavigator that extra attributes can
@@ -217,13 +221,9 @@ class HALNavigator(object):
 
     def __call__(self, raise_exc=True):
         if self.response is None:
-            self._GET(raise_exc=raise_exc)
-        return self.state.copy()
-
-    def fetch(self, raise_exc=True):
-        '''Like __call__, but doesn't cache, always makes the request'''
-        self._GET(raise_exc=raise_exc)
-        return self.state.copy()
+            return self.fetch(raise_exc=raise_exc)
+        else:
+            return self.state.copy()
 
     def create(self,
                body,
@@ -270,11 +270,10 @@ class HALNavigator(object):
             yield current
             last = current
 
+    @autofetch
     def __nonzero__(self):
         # we override normal exception throwing since the user seems interested
         # in the boolean value
-        if self.response is None:
-            self._GET(raise_exc=False)
         return bool(self.response)
 
     def next(self):
