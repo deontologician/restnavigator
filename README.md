@@ -25,6 +25,7 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
     - [Iterating over a Navigator](#iterating-over-a-navigator)
     - [Headers (Request vs. Response)](#headers-request-vs-response)
     - [Bracket mini-language](#bracket-minilanguage)
+    - [Finding the right link](#finding-the-right-link)
     - [Caching](#caching)
 - [Development](#development)
     - [Testing](#testing)
@@ -292,6 +293,46 @@ True
 ```
 
 These tricks aren't necessary all of the time, but they can be very handy in the right situation.
+
+### Finding the right link
+
+The data structure returned by `.links` looks a lot like a dictionary, but it has some special abilities.
+Say for instance we have some links like the following:
+
+```javascript{
+"ht:some_rel: [
+    {
+        "href": "/api/widget/1",
+        "name": "widget1",
+        "profile": "widget"
+    },
+    {
+        "href": "/api/widget/2",
+        "name": "widget2",
+        "profile": "widget"
+    },
+    {
+        "href": "/api/gadget/1",
+        "name": "gadget1",
+        "profile": "gadget"
+    }
+]
+```
+
+Now, we can sort through the links in the following ways:
+
+```python
+>>> N.links['ht:some_rel'].named('gadget1')
+HALNavigator(example.gadget[1])
+>>> N.links['ht:some_rel'].get_by('name', 'gadget1')  # same as previous
+HALNavigator(example.gadget[1])
+>>> N.links['ht:some_rel'].get_by('profile', 'gadget')
+HALNavigator(example.gadget[1])
+>>> N.links['ht:some_rel'].getall_by('profile', 'widget')
+[HALNavigator(example.widget[1]), HALNavigator(example.widget[2])]
+```
+
+This actually works for any property on links, not just the standard HAL properties.
 
 ### Caching
 
