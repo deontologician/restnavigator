@@ -335,7 +335,9 @@ When we go to get the `ht:some_rel`, we'll get multiple results:
 ```
 
 How do we know which one is the one we want?
-The HAL format says links with the same rel can be disambiguated by the `name` link property:
+The [HAL spec] says links with the same rel can be disambiguated by the `name` link property:
+
+[HAL spec]: https://tools.ietf.org/html/draft-kelly-json-hal-06#section-5.5
 
 ```python
 >>> N.links['ht:some_rel'].get_by('name', 'gadget1')
