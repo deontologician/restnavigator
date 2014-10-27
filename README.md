@@ -188,7 +188,7 @@ In order to post something to haltalk, we need to authenticate with our newly cr
 HALNavigator allows any [authentication method that requests supports][] (so OAuth etc).
 For basic auth (which haltalk uses), we can just pass a tuple.
 
-[authentication method requests supports]: http://www.python-requests.org/en/latest/user/advanced/#custom-authentication
+[authentication method that requests supports]: http://www.python-requests.org/en/latest/user/advanced/#custom-authentication
 
 ```python
 >>> N.authenticate(('fred23', 'pwnme'))  # All subsequent calls are authenticated
@@ -219,7 +219,7 @@ This makes moving through paged resources really simple and pythonic:
 
 ```python
 post_navigator = N['ht:posts']
-for post in posts_navigator:
+for post in post_navigator:
     # the first post will be post_navigator itself
     print(post.state)
 ```
@@ -296,7 +296,14 @@ These tricks aren't necessary all of the time, but they can be very handy in the
 
 ### Finding the right link
 
-The data structure returned by `.links` looks a lot like a dictionary, but it has some special abilities.
+Normally, you can chain together brackets to jump from one resource to another in one go:
+
+```python
+>>> N['ht:widget']['ht:gadget']
+```
+
+This will return a Navigator for the `ht:widget` link relation and then immediately fetch the resource and return a Navigator for the `ht:gadget` link relation.
+This works great if you have only one link per relation, but HAL allows multiple links per relation.
 Say for instance we have some links like the following:
 
 ```javascript{
@@ -319,20 +326,34 @@ Say for instance we have some links like the following:
 ]
 ```
 
-Now, we can sort through the links in the following ways:
-
+When we go to get the `ht:some_rel`, we'll get multiple results:
 ```python
->>> N.links['ht:some_rel'].named('gadget1')
-HALNavigator(example.gadget[1])
->>> N.links['ht:some_rel'].get_by('name', 'gadget1')  # same as previous
-HALNavigator(example.gadget[1])
->>> N.links['ht:some_rel'].get_by('profile', 'gadget')
-HALNavigator(example.gadget[1])
->>> N.links['ht:some_rel'].getall_by('profile', 'widget')
-[HALNavigator(example.widget[1]), HALNavigator(example.widget[2])]
+>>> N['ht:some_rel']
+[HALNavigator(api.widget[1]),
+ HALNavigator(api.widget[2]),
+ HALNavigator(api.gadget[1])]
 ```
 
-This actually works for any property on links, not just the standard HAL properties.
+How do we know which one is the one we want?
+The HAL format says links with the same rel can be disambiguated by the `name` link property:
+
+```python
+>>> N.links['ht:some_rel'].get_by('name', 'gadget1')
+HALNavigator(api.gadget[1])
+>>> N.links['ht:some_rel'].named('gadget1')  # same as previous
+HALNavigator(api.gadget[1])
+```
+
+We could also use other properties to slice and dice the list:
+
+```python
+>>> N.links['ht:some_rel'].get_by('profile', 'gadget')
+HALNavigator(api.gadget[1])
+>>> N.links['ht:some_rel'].getall_by('profile', 'widget')
+[HALNavigator(api.widget[1]), HALNavigator(api.widget[2])]
+```
+
+This works for any property on links, not just the standard HAL properties.
 
 ### Caching
 
