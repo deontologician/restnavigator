@@ -58,6 +58,7 @@ class HALNavigator(object):
                  headers=None,
                  session=None,
                  cache=False,
+                 curie=None,
     ):
         self.root = utils.fix_scheme(root)
         self.apiname = utils.namify(root) if apiname is None else apiname
@@ -65,6 +66,7 @@ class HALNavigator(object):
         self.profile = None
         self.title = None
         self.type = 'application/hal+json'
+        self.default_curie = curie
         self.curies = None
         self.session = session or requests.Session()
         if cache:
@@ -141,7 +143,7 @@ class HALNavigator(object):
         def make_nav(link):
             '''Crafts the Navigators for each link'''
             if isinstance(link, list):
-                return utils.LinkList((make_nav(l), l) for l in link)
+                return utils.LinkList((make_nav(lnk), lnk) for lnk in link)
             templated = link.get('templated', False)
             if not templated:
                 uri = urlparse.urljoin(self.uri, link['href'])
@@ -164,9 +166,11 @@ class HALNavigator(object):
                 cp.template_uri = None
             return cp
 
-        return {rel: make_nav(links)
-                for rel, links in body.get('_links', {}).iteritems()
-                if rel not in ['self', 'curies']}
+        return utils.LinkDict(
+            self.default_curie,
+            {rel: make_nav(links)
+             for rel, links in body.get('_links', {}).iteritems()
+             if rel not in ['self', 'curies']})
 
 
     def fetch(self, raise_exc=True):
@@ -385,6 +389,7 @@ class PostResponse(HALNavigator):
         self.profile = parent.profile
         self.title = parent.title
         self.type = response.headers['Content-Type']
+        self.default_curie = parent.default_curie
         self.curies = parent.curies
         self.session = parent.session
         self.response = response
@@ -399,7 +404,7 @@ class PostResponse(HALNavigator):
             self._links = parent._make_links_from(body)
         except ValueError:
             self.state = {}
-            self._links = {}
+            self._links = utils.LinkDict(parent.default_curie, {})
 
 
     def fetch(self, *args, **kwargs):

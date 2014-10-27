@@ -782,3 +782,71 @@ def test_HALNavigator__get_by_properties_multi(bigtest_1):
                                                 bigtest_1.gadget_profile)
         assert widgets == [bar, qux]
         assert gadgets == [baz]
+
+
+
+@pytest.fixture
+def reltest_links():
+    return {
+        'xx:next': {
+            'href': 'http://example.com/api/xxnext',
+        },
+        'xx:nonstandard-rel': {
+            'href': 'http://example.com/api/xxnonstandard',
+        },
+        'yy:nonstandard-rel': {
+            'href': 'http://example.com/api/yynonstandard',
+        },
+        'next': {
+            'href': 'http://example.com/api/next',
+        },
+    }
+
+def test_HALNavigator__default_curie_noconflict(reltest_links):
+    with httprettify() as HTTPretty:
+        index_uri = "http://example.com/api"
+        register_hal(index_uri, links=reltest_links)
+
+        N = HN.HALNavigator(index_uri, curie="xx")
+
+        N1 = N['nonstandard-rel']
+        N2 = N['xx:nonstandard-rel']
+
+        assert N1 is N2
+
+def test_HALNavigator__default_curie_conflict(reltest_links):
+    with httprettify() as HTTPretty:
+        index_uri = "http://example.com/api"
+        register_hal(index_uri, links=reltest_links)
+
+        N = HN.HALNavigator(index_uri, curie="xx")
+
+        N1 = N['next']
+
+        assert N1.uri == 'http://example.com/api/next'
+
+        N2 = N['xx:next']
+
+        assert N2.uri == 'http://example.com/api/xxnext'
+
+def test_HALNavigator__default_curie_wrong_curie(reltest_links):
+    with httprettify() as HTTPretty:
+        index_uri = "http://example.com/api"
+        register_hal(index_uri, links=reltest_links)
+
+        N = HN.HALNavigator(index_uri, curie="xx")
+
+        N1 = N['nonstandard-rel']
+        N2 = N['yy:nonstandard-rel']
+
+        assert N1 is not N2
+
+def test_HALNavigator__default_curie_iana_conflict(reltest_links):
+    with httprettify() as HTTPretty:
+        index_uri = "http://example.com/api"
+        del reltest_links['next']
+        register_hal(index_uri, links=reltest_links)
+
+        N = HN.HALNavigator(index_uri, curie="xx")
+
+        assert N['next'] is N['xx:next']

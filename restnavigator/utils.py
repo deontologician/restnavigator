@@ -9,7 +9,7 @@ import urllib
 
 import unidecode
 
-from restnavigator import exc
+from restnavigator import exc, registry
 
 
 def fix_scheme(url):
@@ -37,7 +37,8 @@ def slice_process(slc):
         if slc.start is not None and slc.stop is None:
             return {slc.start: ''}
         if slc.start is None and slc.stop is None:
-            return {None:None}  # a sentinel indicating 'No further expanding please'
+            return {None:None}  # a sentinel indicating
+                                # 'No further expanding please'
         # maybe more slice types later if there is a good reason
     raise ValueError('Unsupported slice syntax')
 
@@ -179,3 +180,20 @@ class LinkList(list):
         '''Returns .get_by('name', name)'''
         name = self.serialize(name)
         return self.get_by('name', name)
+
+
+class LinkDict(dict):
+    '''dict subclass that allows specifying a default curie. This
+    enables multiple ways to access an item'''
+
+    def __init__(self, default_curie, d):
+        super(LinkDict, self).__init__(d)
+        self.default_curie = default_curie
+
+    def __getitem__(self, key):
+        if (':' in key
+            or (key in self and key in registry.iana_rels)
+            or self.default_curie is None):
+            return super(LinkDict, self).__getitem__(key)
+        implicit_key = '{}:{}'.format(self.default_curie, key)
+        return super(LinkDict, self).__getitem__(implicit_key)

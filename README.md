@@ -27,6 +27,7 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
     - [Bracket mini-language](#bracket-minilanguage)
     - [Finding the right link](#finding-the-right-link)
     - [Caching](#caching)
+    - [Default curie](#default-curie)
 - [Development](#development)
     - [Testing](#testing)
     - [Planned for the future](#planned-for-the-future)
@@ -381,6 +382,41 @@ For more details, check out the [cachecontrol documentation][].
 [cachecontrol]: https://github.com/ionrock/cachecontrol
 [cachecontrol documentation]: http://cachecontrol.readthedocs.org/en/latest/index.html
 
+### Default curie
+
+You may specify a default curie when creating your Navigator:
+
+```python
+>>> N = HALNavigator('http://haltalk.herokuapp.com', curie='ht')
+```
+
+Now, when you follow links, you may leave off the default curie if you want:
+
+```python
+>>> N.links
+{'ht:users': [HALNavigator(haltalk.users)],
+ 'ht:signup': [HALNavigator(haltalk.signup)],
+ 'ht:me': [HALNavigator(haltalk.users.{name})],
+ 'ht:latest-posts': [HALNavigator(haltalk.posts.latest)]
+}
+>>> N['ht:users']
+HALNavigator(haltalk.users)
+>>> N['users']
+HALNavigator(haltalk.users)
+```
+
+The only exception is where the key being supplied is a [IANA registered link relation][], and there is a conflict (hint: this should be quite rare):
+
+[IANA registered link relation]: http://www.iana.org/assignments/link-relations/link-relations.xhtml
+
+```python
+>>> N.links
+{'ht:next': HALNavigator(haltalk.unregistered),
+  'next': HALNavigator(haltalk.registered)}
+>>> N['next']
+HALNavigator(haltalk.registered)
+```
+
 ## Development
 ### Testing
 To run tests, first install the [pytest framework][]:
@@ -398,9 +434,6 @@ $ py.test
 ```
 
 ### Planned for the future
-
-* Specifying a curie as a default namespace. As long as the curie is defined on
-  the resource you want, you don't need to specify it when indexing link rels
 * Ability to add hooks for different types, rels and profiles. If a link has one
   of these properties, it will call your hook when doing a server call.
 * Take advantage of the "HTTP caching pattern" for embedded resources, and will
