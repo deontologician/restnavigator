@@ -44,7 +44,7 @@ def default_headers():
 def get_state(hal_body):
     '''Removes HAL special properties from a HAL+JSON response'''
     return {k: v for k, v in hal_body.iteritems()
-            if k not in ['_links', '_embedded']}
+            if k not in ['_links']}
 
 class HALNavigator(object):
     '''The main navigation entity'''
