@@ -413,7 +413,8 @@ class PostResponse(HALNavigator):
             'Maybe you want this object\'s .parent attribute, '
             'or possibly one of the resources in .links')
 
-    __call__ = fetch
+    def __call__(self, *args, **kwargs):
+        return self.state.copy()
 
     def create(self, *args, **kwargs):
         raise NotImplementedError(
