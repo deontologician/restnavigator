@@ -191,6 +191,8 @@ class HALNavigator(object):
              for rel, links in body.get('_links', {}).iteritems()
              if rel not in ['self', 'curies']})
 
+
+
     @template_uri_check
     def fetch(self, raise_exc=True):
         '''Like __call__, but doesn't cache, always makes the request'''
@@ -264,7 +266,10 @@ class HALNavigator(object):
                             json_cls=None,
                             headers=None,
     ):
-
+        '''
+            Fetches HTTP response using http method (POST or DELETE of requests.Session)
+            Raises HALNavigatorError if response is not positive
+        '''
         if isinstance(body, dict):
             body = json.dumps(body, cls=json_cls, separators=(',', ':'))
         headers = {} if headers is None else headers
@@ -278,6 +283,7 @@ class HALNavigator(object):
                 nav=self,
                 response=response,
             )
+        return response
 
     @template_uri_check
     def post(self,
@@ -309,10 +315,9 @@ class HALNavigator(object):
                                     httplib.SEE_OTHER,
         ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
-
-        if response.status_code == httplib.OK:
-            # Expected only httplib.OK which has some description
-            #Else we might be catching errored response
+        else:
+            # response.status_code  in [httplib.OK, httplib.NO_CONTENT]
+            # Expected only httplib.OK has some description
             return HALResponse(parent=self, response=response)
 
     create = post
