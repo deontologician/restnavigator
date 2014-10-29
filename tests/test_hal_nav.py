@@ -623,9 +623,9 @@ def test_PostResponse__basic(status, body, content_type):
 
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts']
-        PR = N2.create({})  # PR = PostResponse
+        PR = N2.create({})  # PR = HALResponse
 
-        assert isinstance(PR, HN.PostResponse)
+        assert isinstance(PR, HN.HALResponse)
         assert PR.status[0] == status
         assert PR.parent is N2
 
