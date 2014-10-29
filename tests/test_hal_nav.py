@@ -599,6 +599,36 @@ def test_HALNavigator__create(redirect_status, post_body):
         assert not N2.fetched
 
 
+@pytest.mark.parametrize(('redirect_status', 'delete_body'), [
+    (202, {'name': 'foo'}),
+    (302, {'name': 'foo'}),
+    (303, {'name': 'foo'}),
+    (303, '{"name":"foo"}'),
+])
+def test_HALNavigator__delete(redirect_status, delete_body):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        hosts_uri = index_uri + 'hosts'
+        new_resource_uri = index_uri + 'new_resource'
+        index_links = {'hosts': {'href': hosts_uri}}
+        register_hal(index_uri, index_links)
+        register_hal(new_resource_uri)
+        HTTPretty.register_uri('DELETE',
+                               uri=hosts_uri,
+                               location=new_resource_uri,
+                               status=redirect_status,
+        )
+        N = HN.HALNavigator(index_uri)
+        N2 = N['hosts'].delete(delete_body)
+        assert HTTPretty.last_request.method == 'DELETE'
+        last_content_type = HTTPretty.last_request.headers['content-type']
+        assert last_content_type == 'application/json'
+        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        assert N2.uri == new_resource_uri
+        assert not N2.fetched
+
+
+
 @pytest.mark.parametrize(('status', 'body', 'content_type'), [
     (200, 'hi there', 'text/plain'),
     (200, '{"hi": "there"}', 'application/json'),
@@ -607,7 +637,7 @@ def test_HALNavigator__create(redirect_status, post_body):
                  "hi": "there"}), 'application/hal+json'),
     (204, '', 'text/plain'),
 ])
-def test_PostResponse__basic(status, body, content_type):
+def test_HALResponse__basic(status, body, content_type):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
@@ -623,29 +653,29 @@ def test_PostResponse__basic(status, body, content_type):
 
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts']
-        PR = N2.create({})  # PR = HALResponse
+        OR = N2.create({})  # PR = OrphanResource
 
-        assert isinstance(PR, HN.HALResponse)
-        assert PR.status[0] == status
-        assert PR.parent is N2
+        assert isinstance(OR, HN.OrphanResource)
+        assert OR.status[0] == status
+        assert OR.parent is N2
 
         with pytest.raises(NotImplementedError):
-            PR.fetch()
+            OR.fetch()
         with pytest.raises(NotImplementedError):
-            PR.create({'values': True, 'hi': 'there'})
+            OR.create({'values': True, 'hi': 'there'})
         if status == 200 and content_type == 'text/plain':
-            assert PR.state == {}
-            assert PR.response.text == 'hi there'
+            assert OR.state == {}
+            assert OR.response.text == 'hi there'
         elif content_type == 'application/json':
-            assert PR.state == {'hi': 'there'}
+            assert OR.state == {'hi': 'there'}
         elif content_type == 'application/hal+json':
-            assert 'alternate' in PR.links
-            assert PR.links['alternate'].uri == 'http://www.example.com/hogo'
+            assert 'alternate' in OR.links
+            assert OR.links['alternate'].uri == 'http://www.example.com/hogo'
         elif status == 204:
-            assert PR.state == {}
-            assert PR.links == {}
+            assert OR.state == {}
+            assert OR.links == {}
 
-        assert PR() == PR.state
+        assert OR() == OR.state
 
 
 def test_HALNavigator__relative_links():
