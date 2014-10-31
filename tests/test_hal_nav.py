@@ -13,6 +13,7 @@ import uritemplate
 import restnavigator.halnav as HN
 
 
+
 # pylint: disable-msg=E1101
 
 
@@ -581,7 +582,7 @@ def test_HALNavigator__create(redirect_status, post_body):
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
         new_resource_uri = index_uri + 'new_resource'
-        index_links = {'hosts': {'href': hosts_uri}}
+        index_links = {'hosts': {'href': hosts_uri, 'method': 'POST'}}
         register_hal(index_uri, index_links)
         register_hal(new_resource_uri)
         HTTPretty.register_uri('POST',
@@ -610,7 +611,7 @@ def test_HALNavigator__delete(redirect_status, delete_body):
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
         new_resource_uri = index_uri + 'new_resource'
-        index_links = {'hosts': {'href': hosts_uri}}
+        index_links = {'hosts': {'href': hosts_uri, 'method': 'DELETE'}}
         register_hal(index_uri, index_links)
         register_hal(new_resource_uri)
         HTTPretty.register_uri('DELETE',
@@ -628,7 +629,6 @@ def test_HALNavigator__delete(redirect_status, delete_body):
         assert not N2.fetched
 
 
-
 @pytest.mark.parametrize(('status', 'body', 'content_type'), [
     (200, 'hi there', 'text/plain'),
     (200, '{"hi": "there"}', 'application/json'),
@@ -641,7 +641,7 @@ def test_HALResponse__basic(status, body, content_type):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
-        index_links = {'hosts': {'href': hosts_uri}}
+        index_links = {'hosts': {'href': hosts_uri, 'method': 'POST'}}
         register_hal(index_uri, index_links)
         HTTPretty.register_uri(
             'POST',

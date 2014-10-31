@@ -30,7 +30,7 @@ def autofetch(fn):
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
         if self.idempotent and self.response is None:
-            self.fetch(raise_exc=qargs.get('raise_exc', False))
+            self.fetch(raise_exc=qargs.get('raise_exc', False), strict=qargs.get('strict',True))
         return fn(self, *args, **qargs)
 
     return wrapped
@@ -62,21 +62,6 @@ def template_uri_check(fn):
         return fn(self, *args, **qargs)
 
     return wrapped
-
-def method_validation(allowed_list):
-    def wrap(f):
-        def wrapped(self,*args, **qargs):
-            if qargs['strict'] and self.method.upper() not in allowed_list:
-                raise HALNavigatorError(u'{} is possible for resources with methods {}.'
-                                        u'{} is the only allowed methods for {}'.format(f.__name__,
-                                                                                        allowed_list,
-                                                                                        self.method,
-                                                                                        self.uri),
-                                        nav=self,
-                )
-            f(self, *args, **qargs)
-        return wrapped
-    return wrap
 
 class HALNavigator(object):
     '''The main navigation entity'''
@@ -191,6 +176,7 @@ class HALNavigator(object):
                 title=link.get('title'),
                 type=link.get('type'),
                 profile=link.get('profile'),
+                method=link.get('method')
             )
             if templated:
                 cp.uri = None
@@ -208,9 +194,12 @@ class HALNavigator(object):
 
 
     @template_uri_check
-    @method_validation(allowed_list=['GET'])
+    #@method_validation(allowed_list=['GET'])
     def fetch(self, raise_exc=True, strict=True):
         '''Like __call__, but doesn't cache, always makes the request'''
+        if self.method != 'GET' and strict==True:
+            raise HALNavigatorError('{} supports only {}, not GET'.format(self, self.method))
+
         self.response = self.session.get(self.uri)
 
         try:
@@ -268,9 +257,9 @@ class HALNavigator(object):
     def __ne__(self, other):
         return not self == other
 
-    def __call__(self, raise_exc=True, strict=True):
+    def __call__(self, raise_exc=True):
         if self.response is None:
-            return self.fetch(raise_exc=raise_exc, strict=strict)
+            return self.fetch(raise_exc=raise_exc)
         else:
             return self.state.copy()
 
@@ -281,11 +270,18 @@ class HALNavigator(object):
                             content_type='application/json',
                             json_cls=None,
                             headers=None,
+                            strict=True
     ):
         '''
             Fetches HTTP response using http method (POST or DELETE of requests.Session)
             Raises HALNavigatorError if response is not positive
         '''
+
+        http_method  = http_method_fn.__name__.upper()
+
+        if self.method != http_method and strict==True:
+            raise HALNavigatorError(u'{} supports only {}, not {}'.format(self.uri, self.method, http_method))
+
         if isinstance(body, dict):
             body = json.dumps(body, cls=json_cls, separators=(',', ':'))
         headers = {} if headers is None else headers
@@ -302,7 +298,7 @@ class HALNavigator(object):
         return response
 
     @template_uri_check
-    @method_validation(allowed_list=['POST'])
+    #@method_validation(allowed_list=['POST'])
     def post(self,
              body,
              raise_exc=True,
@@ -340,7 +336,7 @@ class HALNavigator(object):
     create = post
 
     @template_uri_check
-    @method_validation(allowed_list=['DELETE'])
+    #@method_validation(allowed_list=['DELETE'])
     def delete(self,
                body=None,
                raise_exc=True,
