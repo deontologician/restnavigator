@@ -79,6 +79,7 @@ def test_slice_process():
     ('example.com/ko%C5%BEu%C5%A1%C4%8Dek', 'ExampleKozuscek'),
     ('example.com/%E3%82%AF%E3%83%AA%E3%83%BC%E3%82%AC%E3%83%BC',
      'ExampleKuriga'),
+    ('http://localhost:8082/stubs/webapi/first_page', 'StubsWebAPIFirst_page'),
 ])
 def test_namify(root_uri, expected):
     assert RNU.namify(root_uri) == expected

@@ -78,11 +78,19 @@ def namify(root_uri):
 
     root_uri = unidecode.unidecode(urllib.unquote(root_uri).decode('utf-8'))
 
-    generic_domains = set(['herokuapp', 'appspot'])
+    generic_domains = set(['localhost', 'herokuapp', 'appspot'])
     urlp = urlparse.urlparse(fix_scheme(root_uri))
     formatargs = collections.defaultdict(list)
 
-    domain, tld = urlp.netloc.lower().rsplit('.', 1)
+    netloc = urlp.netloc.lower()
+    if ':' in netloc:
+        domain = netloc.split(':', 1)[0]  # don't need port
+    else:
+        domain = netloc
+    if '.' in netloc:
+        domain, tld = domain.rsplit('.', 1)
+    else:
+        tld = ''
     if '.' in domain:
         subdomain, domain = domain.rsplit('.', 1)
     else:
