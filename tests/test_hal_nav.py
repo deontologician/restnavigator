@@ -582,7 +582,7 @@ def test_HALNavigator__create(redirect_status, post_body):
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
         new_resource_uri = index_uri + 'new_resource'
-        index_links = {'hosts': {'href': hosts_uri, 'method': 'POST'}}
+        index_links = {'hosts': {'href': hosts_uri}}
         register_hal(index_uri, index_links)
         register_hal(new_resource_uri)
         HTTPretty.register_uri('POST',
@@ -637,11 +637,11 @@ def test_HALNavigator__delete(redirect_status, delete_body):
                  "hi": "there"}), 'application/hal+json'),
     (204, '', 'text/plain'),
 ])
-def test_HALResponse__basic(status, body, content_type):
+def test_OrphanResource__basic(status, body, content_type):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
-        index_links = {'hosts': {'href': hosts_uri, 'method': 'POST'}}
+        index_links = {'hosts': {'href': hosts_uri}}
         register_hal(index_uri, index_links)
         HTTPretty.register_uri(
             'POST',
@@ -653,7 +653,7 @@ def test_HALResponse__basic(status, body, content_type):
 
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts']
-        OR = N2.create({})  # PR = OrphanResource
+        OR = N2.create({})  # OR = OrphanResource
 
         assert isinstance(OR, HN.OrphanResource)
         assert OR.status[0] == status

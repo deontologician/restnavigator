@@ -298,8 +298,7 @@ class HALNavigator(object):
         return response
 
     @template_uri_check
-    #@method_validation(allowed_list=['POST'])
-    def post(self,
+    def create(self,
              body,
              raise_exc=True,
              content_type='application/json',
@@ -333,7 +332,6 @@ class HALNavigator(object):
             # Expected only httplib.OK has some description
             return OrphanResource(parent=self, response=response)
 
-    create = post
 
     @template_uri_check
     #@method_validation(allowed_list=['DELETE'])
