@@ -285,6 +285,11 @@ def test_HALNavigator__dont_get_template_links():
             assert N['page': 0]  # N is not templated
         with pytest.raises(HN.exc.AmbiguousNavigationError):
             assert N['first']()  # N['first'] is templated
+        with pytest.raises(HN.exc.AmbiguousNavigationError):
+            assert N['first'].create()  # N['first'] is templated
+        with pytest.raises(HN.exc.AmbiguousNavigationError):
+            assert N['first'].delete()  # N['first'] is templated
+
         assert N['first'].templated
         assert N['first']['page': 0].uri == 'http://www.example.com/?page=0'
         assert not N['first']['page':0].templated

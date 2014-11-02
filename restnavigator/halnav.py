@@ -328,13 +328,11 @@ class HALNavigator(object):
         ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
         else:
-            # response.status_code  in [httplib.OK, httplib.NO_CONTENT]
-            # Expected only httplib.OK has some description
+            # to handle [httplib.OK, httplib.NO_CONTENT]
+            # Only httplib.OK is expected to have some description
             return OrphanResource(parent=self, response=response)
 
-
     @template_uri_check
-    #@method_validation(allowed_list=['DELETE'])
     def delete(self,
                body=None,
                raise_exc=True,
