@@ -297,6 +297,29 @@ class HALNavigator(object):
             )
         return response
 
+    def create_navigator_or_orphan_resource_based_on_status_code(self, response):
+        if response.status_code in (httplib.CREATED, # Applicable for POST
+                                    httplib.FOUND,
+                                    httplib.SEE_OTHER,
+                                    httplib.NO_CONTENT,
+                                    httplib.ACCEPTED # It doesnt belong here, under debate
+        ) and 'Location' in response.headers:
+            return self._copy(uri=response.headers['Location'])
+        elif response.status_code == httplib.OK:
+            return OrphanResource(parent=self, response=response)
+        else:
+            '''
+                Expected hits:
+                CREATED or Redirection without Locaiton,
+                NO_CONTENT = 204
+                ACCEPTED = 202 and
+                4xx, 5xx errors.
+
+                If something else, then requires rework
+
+                '''
+            return self.status
+
     @template_uri_check
     def create(self,
              body,
@@ -321,16 +344,7 @@ class HALNavigator(object):
                                             headers,
         )
 
-        if response.status_code in (httplib.CREATED,
-                                    httplib.ACCEPTED,
-                                    httplib.FOUND,
-                                    httplib.SEE_OTHER,
-        ) and 'Location' in response.headers:
-            return self._copy(uri=response.headers['Location'])
-        else:
-            # to handle [httplib.OK, httplib.NO_CONTENT]
-            # Only httplib.OK is expected to have some description
-            return OrphanResource(parent=self, response=response)
+        return self.create_navigator_or_orphan_resource_based_on_status_code(response)
 
     @template_uri_check
     def delete(self,
@@ -355,15 +369,7 @@ class HALNavigator(object):
                                             headers,
         )
 
-        if response.status_code in (httplib.ACCEPTED,
-                                    httplib.FOUND,
-                                    httplib.SEE_OTHER,
-        ) and 'Location' in response.headers:
-            return self._copy(uri=response.headers['Location'])
-        if response.status_code == httplib.OK:
-            ''' Only status code, returns some description '''
-            return OrphanResource(parent=self, response=response)
-
+        return self.create_navigator_or_orphan_resource_based_on_status_code(response)
 
     def __iter__(self):
         '''Part of iteration protocol'''

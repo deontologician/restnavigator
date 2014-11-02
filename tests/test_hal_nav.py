@@ -604,14 +604,44 @@ def test_HALNavigator__create(redirect_status, post_body):
         assert N2.uri == new_resource_uri
         assert not N2.fetched
 
+@pytest.mark.parametrize(('redirect_status', 'post_body'), [
+    (302, {'name': 'foo'}),
+    (303, {'name': 'foo'}),
+    (201, {'name': 'foo'}),
+    (202, {'name': 'foo'}),
+    (303, '{"name":"foo"}'),
+])
 
-@pytest.mark.parametrize(('redirect_status', 'delete_body'), [
+def test_HALNavigator__create(redirect_status, post_body):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        hosts_uri = index_uri + 'hosts'
+        new_resource_uri = index_uri + 'new_resource'
+        index_links = {'hosts': {'href': hosts_uri}}
+        register_hal(index_uri, index_links)
+        register_hal(new_resource_uri)
+        HTTPretty.register_uri('POST',
+                               uri=hosts_uri,
+                               location=new_resource_uri,
+                               status=redirect_status,
+        )
+        N = HN.HALNavigator(index_uri)
+        N2 = N['hosts'].create(post_body)
+        assert HTTPretty.last_request.method == 'POST'
+        last_content_type = HTTPretty.last_request.headers['content-type']
+        assert last_content_type == 'application/json'
+        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        assert N2.uri == new_resource_uri
+        assert not N2.fetched
+
+@pytest.mark.parametrize(('status_code', 'delete_body'), [
+    (204, ''),
     (202, {'name': 'foo'}),
     (302, {'name': 'foo'}),
     (303, {'name': 'foo'}),
     (303, '{"name":"foo"}'),
 ])
-def test_HALNavigator__delete(redirect_status, delete_body):
+def test_HALNavigator__delete(status_code, delete_body):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
@@ -622,14 +652,17 @@ def test_HALNavigator__delete(redirect_status, delete_body):
         HTTPretty.register_uri('DELETE',
                                uri=hosts_uri,
                                location=new_resource_uri,
-                               status=redirect_status,
+                               status=status_code,
         )
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts'].delete(delete_body)
         assert HTTPretty.last_request.method == 'DELETE'
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
-        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        if status_code == 204:
+            assert HTTPretty.last_request.body == ''
+        else:
+            assert HTTPretty.last_request.body == '{"name":"foo"}'
         assert N2.uri == new_resource_uri
         assert not N2.fetched
 
@@ -640,7 +673,6 @@ def test_HALNavigator__delete(redirect_status, delete_body):
     (200,
      json.dumps({'_links': {'alternate': {'href': '/hogo'}},
                  "hi": "there"}), 'application/hal+json'),
-    (204, '', 'text/plain'),
 ])
 def test_OrphanResource__basic(status, body, content_type):
     with httprettify() as HTTPretty:
