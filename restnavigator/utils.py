@@ -37,9 +37,9 @@ def slice_process(slc):
         if slc.start is not None and slc.stop is None:
             return {slc.start: ''}
         if slc.start is None and slc.stop is None:
-            return {None:None}  # a sentinel indicating
-                                # 'No further expanding please'
-        # maybe more slice types later if there is a good reason
+            return {None: None}  # a sentinel indicating
+            # 'No further expanding please'
+            # maybe more slice types later if there is a good reason
     raise ValueError('Unsupported slice syntax')
 
 
@@ -58,7 +58,7 @@ def normalize_getitem_args(args):
             rels.append(arg)
         elif isinstance(arg, slice):
             slc = slice_process(arg)
-            if slc == {None:None}:
+            if slc == {None: None}:
                 slug = True
             else:
                 qargs.update(slc)
@@ -83,27 +83,31 @@ def namify(root_uri):
     formatargs = collections.defaultdict(list)
 
     netloc = urlp.netloc.lower()
-    if ':' in netloc:
-        domain = netloc.split(':', 1)[0]  # don't need port
+    if ']' in netloc:
+        domain = netloc.rsplit(']:', 1)[0]  # don't need port
+    elif ':' in netloc:
+        domain = netloc.rsplit(':', 1)[0]  # don't need port
     else:
         domain = netloc
-    if '.' in netloc:
-        domain, tld = domain.rsplit('.', 1)
-    else:
-        tld = ''
-    if '.' in domain:
-        subdomain, domain = domain.rsplit('.', 1)
-    else:
-        subdomain = ''
 
-    if subdomain != 'www':
-        formatargs['subdomain'] = subdomain.split('.')
-    if domain not in generic_domains:
-        formatargs['domain'].append(domain)
-    if len(tld) == 2:
-        formatargs['tld'].append(tld.upper())
-    elif tld != 'com':
-        formatargs['tld'].append(tld)
+    if not domain.translate(None, "abcdef:.[]").isdigit():
+        if '.' in domain:
+            domain, tld = domain.rsplit('.', 1)
+        else:
+            tld = ''
+        if '.' in domain:
+            subdomain, domain = domain.rsplit('.', 1)
+        else:
+            subdomain = ''
+
+        if subdomain != 'www':
+            formatargs['subdomain'] = subdomain.split('.')
+        if domain not in generic_domains:
+            formatargs['domain'].append(domain)
+        if len(tld) == 2:
+            formatargs['tld'].append(tld.upper())
+        elif tld != 'com':
+            formatargs['tld'].append(tld)
 
     formatargs['path'].extend(p for p in urlp.path.lower().split('/') if p)
     formatargs['qargs'].extend(r for q in urlp.query.split(',')
@@ -138,7 +142,7 @@ def namify(root_uri):
     return '{pieces}{api}{vrsn}'.format(pieces=''.join(pieces),
                                         api='API' if formatargs['api'] else '',
                                         vrsn=''.join(formatargs['version']),
-                                        )
+    )
 
 
 class LinkList(list):
