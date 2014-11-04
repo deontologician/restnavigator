@@ -79,6 +79,12 @@ def test_slice_process():
     ('example.com/ko%C5%BEu%C5%A1%C4%8Dek', 'ExampleKozuscek'),
     ('example.com/%E3%82%AF%E3%83%AA%E3%83%BC%E3%82%AC%E3%83%BC',
      'ExampleKuriga'),
+    ('http://localhost:8082/stubs/webapi/first_page', 'StubsWebAPIFirst_page'),
+    ('http://127.0.0.1:8082/ipv4/withport', 'Ipv4Withport'),
+    ('http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6/without_port', 'Ipv6Without_port'),
+    ('http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8082/ipv6/with_port', 'Ipv6With_port'),
+    ('http://[::192.9.5.5]/ipv6missingrp', 'Ipv6missingrp')
+
 ])
 def test_namify(root_uri, expected):
     assert RNU.namify(root_uri) == expected
