@@ -297,12 +297,11 @@ class HALNavigator(object):
             )
         return response
 
-    def create_navigator_or_orphan_resource_based_on_status_code(self, response):
+    def create_navigator_or_orphan_resource(self, response):
         if response.status_code in (httplib.CREATED, # Applicable for POST
                                     httplib.FOUND,
                                     httplib.SEE_OTHER,
                                     httplib.NO_CONTENT,
-                                    httplib.ACCEPTED # It doesnt belong here, under debate
         ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
         elif response.status_code == httplib.OK:
@@ -344,7 +343,7 @@ class HALNavigator(object):
                                             headers,
         )
 
-        return self.create_navigator_or_orphan_resource_based_on_status_code(response)
+        return self.create_navigator_or_orphan_resource(response)
 
     @template_uri_check
     def delete(self,
@@ -369,7 +368,7 @@ class HALNavigator(object):
                                             headers,
         )
 
-        return self.create_navigator_or_orphan_resource_based_on_status_code(response)
+        return self.create_navigator_or_orphan_resource(response)
 
     def __iter__(self):
         '''Part of iteration protocol'''
