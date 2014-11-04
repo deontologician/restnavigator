@@ -604,7 +604,7 @@ def test_HALNavigator__create(redirect_status, post_body):
         assert N2.uri == new_resource_uri
         assert not N2.fetched
 
-@pytest.mark.parametrize(('redirect_status', 'post_body'), [
+@pytest.mark.parametrize(('status_code', 'post_body'), [
     (302, {'name': 'foo'}),
     (303, {'name': 'foo'}),
     (201, {'name': 'foo'}),
@@ -612,7 +612,7 @@ def test_HALNavigator__create(redirect_status, post_body):
     (303, '{"name":"foo"}'),
 ])
 
-def test_HALNavigator__create(redirect_status, post_body):
+def test_HALNavigator__create(status_code, post_body):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
@@ -623,7 +623,7 @@ def test_HALNavigator__create(redirect_status, post_body):
         HTTPretty.register_uri('POST',
                                uri=hosts_uri,
                                location=new_resource_uri,
-                               status=redirect_status,
+                               status=status_code,
         )
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts'].create(post_body)
@@ -631,8 +631,11 @@ def test_HALNavigator__create(redirect_status, post_body):
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
         assert HTTPretty.last_request.body == '{"name":"foo"}'
-        assert N2.uri == new_resource_uri
-        assert not N2.fetched
+        if status_code == 202:
+            assert N2 is None
+        else:
+            assert N2.uri == new_resource_uri
+            assert not N2.fetched
 
 @pytest.mark.parametrize(('status_code', 'delete_body'), [
     (204, ''),
@@ -663,8 +666,11 @@ def test_HALNavigator__delete(status_code, delete_body):
             assert HTTPretty.last_request.body == ''
         else:
             assert HTTPretty.last_request.body == '{"name":"foo"}'
-        assert N2.uri == new_resource_uri
-        assert not N2.fetched
+        if status_code == 202:
+            assert N2 is None
+        else:
+            assert N2.uri == new_resource_uri
+            assert not N2.fetched
 
 
 @pytest.mark.parametrize(('status', 'body', 'content_type'), [

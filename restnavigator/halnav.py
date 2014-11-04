@@ -30,7 +30,7 @@ def autofetch(fn):
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
         if self.idempotent and self.response is None:
-            self.fetch(raise_exc=qargs.get('raise_exc', False), strict=qargs.get('strict',True))
+            self.fetch(raise_exc=qargs.get('raise_exc', False))
         return fn(self, *args, **qargs)
 
     return wrapped
@@ -62,6 +62,7 @@ def template_uri_check(fn):
         return fn(self, *args, **qargs)
 
     return wrapped
+
 
 class HALNavigator(object):
     '''The main navigation entity'''
@@ -176,7 +177,6 @@ class HALNavigator(object):
                 title=link.get('title'),
                 type=link.get('type'),
                 profile=link.get('profile'),
-                method=link.get('method')
             )
             if templated:
                 cp.uri = None
@@ -194,14 +194,9 @@ class HALNavigator(object):
 
 
     @template_uri_check
-    #@method_validation(allowed_list=['GET'])
-    def fetch(self, raise_exc=True, strict=True):
+    def fetch(self, raise_exc=True):
         '''Like __call__, but doesn't cache, always makes the request'''
-        if self.method != 'GET' and strict==True:
-            raise HALNavigatorError('{} supports only {}, not GET'.format(self, self.method))
-
         self.response = self.session.get(self.uri)
-
         try:
             body = json.loads(self.response.text)
         except ValueError:
@@ -270,18 +265,11 @@ class HALNavigator(object):
                             content_type='application/json',
                             json_cls=None,
                             headers=None,
-                            strict=True
     ):
         '''
             Fetches HTTP response using http method (POST or DELETE of requests.Session)
             Raises HALNavigatorError if response is not positive
         '''
-
-        http_method  = http_method_fn.__name__.upper()
-
-        if self.method != http_method and strict==True:
-            raise HALNavigatorError(u'{} supports only {}, not {}'.format(self.uri, self.method, http_method))
-
         if isinstance(body, dict):
             body = json.dumps(body, cls=json_cls, separators=(',', ':'))
         headers = {} if headers is None else headers
@@ -491,7 +479,6 @@ class OrphanResource(HALNavigator):
         self.parameters = None
         self.templated = False  # OrphanResource can't be templated
         self._id_map = parent._id_map
-        self.method = None
         try:
             body = json.loads(response.text)
             self.state = get_state(body)
@@ -510,12 +497,12 @@ class OrphanResource(HALNavigator):
     def __call__(self, *args, **kwargs):
         return self.state.copy()
 
-    def post(self, *args, **kwargs):
+    def create(self, *args, **kwargs):
         raise NotImplementedError(
             'Cannot create a non-idempotent resource. '
             'Maybe you want this object\'s .parent attribute, '
             'or possibly one of the resources in .links')
-    create = post
+
 
 class HALNavigatorError(Exception):
     '''Raised when a response is an error
