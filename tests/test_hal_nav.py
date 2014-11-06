@@ -568,14 +568,15 @@ def test_HALNavigator__fetch():
         assert fetch3['name'] == 'body2'
 
 
-@pytest.mark.parametrize(('redirect_status', 'post_body'), [
+@pytest.mark.parametrize(('status_code', 'post_body'), [
     (302, {'name': 'foo'}),
     (303, {'name': 'foo'}),
-    (201, {'name': 'foo'}),
-    (202, {'name': 'foo'}),
     (303, '{"name":"foo"}'),
+    (201, ''),
+    (204, {'name': 'foo'}),
+
 ])
-def test_HALNavigator__create(redirect_status, post_body):
+def test_HALNavigator__create_response_with_new_resource_location(status_code, post_body):
     with httprettify() as HTTPretty:
         index_uri = 'http://www.example.com/api/'
         hosts_uri = index_uri + 'hosts'
@@ -586,16 +587,45 @@ def test_HALNavigator__create(redirect_status, post_body):
         HTTPretty.register_uri('POST',
                                uri=hosts_uri,
                                location=new_resource_uri,
-                               status=redirect_status,
+                               status=status_code,
                                )
         N = HN.HALNavigator(index_uri)
         N2 = N['hosts'].create(post_body)
         assert HTTPretty.last_request.method == 'POST'
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
-        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        if status_code == 201:
+            assert HTTPretty.last_request.body == ''
+        else:
+            assert HTTPretty.last_request.body == '{"name":"foo"}'
         assert N2.uri == new_resource_uri
         assert not N2.fetched
+
+@pytest.mark.parametrize(('status_code', 'status_reason'), [
+    (302, 'Found'),
+    (303, 'See Other'),
+    (201, 'Created'),
+    (202, 'Accepted'),
+    (204, 'No Content'),
+])
+
+def test_HALNavigator__create_response_without_location_info(status_code,  status_reason):
+    with httprettify() as HTTPretty:
+        index_uri = 'http://www.example.com/api/'
+        hosts_uri = index_uri + 'hosts'
+        post_body = {'name': 'foo'}
+        index_links = {'hosts': {'href': hosts_uri}}
+        register_hal(index_uri, index_links)
+        HTTPretty.register_uri('POST',
+                               uri=hosts_uri,
+                               status=status_code,
+                               )
+        N = HN.HALNavigator(index_uri)
+        N2 = N['hosts'].create(post_body)
+        assert HTTPretty.last_request.method == 'POST'
+        assert N2 == (status_code, status_reason,)
+
+
 
 @pytest.mark.parametrize(('status', 'body', 'content_type'), [
     (200, 'hi there', 'text/plain'),
@@ -603,7 +633,6 @@ def test_HALNavigator__create(redirect_status, post_body):
     (200,
      json.dumps({'_links': {'alternate': {'href': '/hogo'}}}),
      'application/hal+json'),
-    (204, '', 'text/plain'),
 ])
 def test_PostResponse__basic(status, body, content_type):
     with httprettify() as HTTPretty:

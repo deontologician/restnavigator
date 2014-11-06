@@ -135,7 +135,7 @@ class HALNavigator(object):
     @property
     def status(self):
         if self.response is not None:
-            return (self.response.status_code, self.response.reason)
+            return self.response.status_code, self.response.reason
 
     def _make_links_from(self, body):
         '''Creates linked navigators from a HAL response body'''
@@ -271,13 +271,24 @@ class HALNavigator(object):
                 response=response,
             )
         if response.status_code in (httplib.CREATED,
-                                    httplib.ACCEPTED,
                                     httplib.FOUND,
                                     httplib.SEE_OTHER,
+                                    httplib.NO_CONTENT
                                     ) and 'Location' in response.headers:
             return self._copy(uri=response.headers['Location'])
-        else:
+        elif response.status_code == httplib.OK:
             return PostResponse(parent=self, response=response)
+        else:
+            '''
+                Expected hits:
+                CREATED or Redirection without Locaiton,
+                ACCEPTED = 202 and
+                4xx, 5xx errors.
+
+                If something else, then requires rework
+
+                '''
+            return response.status_code, response.reason
 
     def __iter__(self):
         '''Part of iteration protocol'''
