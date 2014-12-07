@@ -30,7 +30,6 @@ setup(
     install_requires=["requests>=1.1.0, <=2.2.0",
                       "uritemplate>=0.6.0",
                       "Unidecode>=0.04.14",
-                      "CacheControl>=0.10.4",
                       ],
     tests_require=[
         "httpretty==0.6.0",

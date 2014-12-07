@@ -26,7 +26,6 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
     - [Headers (Request vs. Response)](#headers-request-vs-response)
     - [Bracket mini-language](#bracket-minilanguage)
     - [Finding the right link](#finding-the-right-link)
-    - [Caching](#caching)
     - [Default curie](#default-curie)
 - [Development](#development)
     - [Testing](#testing)
@@ -357,30 +356,6 @@ HALNavigator(api.gadget[1])
 ```
 
 This works for any property on links, not just the standard HAL properties.
-
-### Caching
-
-rest_navigator allows you to enable http caching with the [cachecontrol][] library.
-You can enable it with the `cache` argument when initializing your Navigator:
-
-```python
->>> N = HALNavigator('example.com/api', cache=True)
-```
-
-This may be enabled by default in the future, but for now it's opt-in.
-
-You can also provide your own `CacheControlAdapter` if you need fine grained control over caching behavior:
-
-```python
->>> from cachecontrol import CacheControlAdapter
->>> cache_adapter = CacheControlAdapter(cache_etags=False)
->>> N = HALNavigator('example.com/api', cache=cache_adapter)
-```
-
-For more details, check out the [cachecontrol documentation][].
-
-[cachecontrol]: https://github.com/ionrock/cachecontrol
-[cachecontrol documentation]: http://cachecontrol.readthedocs.org/en/latest/index.html
 
 ### Default curie
 

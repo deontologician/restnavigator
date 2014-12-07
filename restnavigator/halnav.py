@@ -16,7 +16,6 @@ import webbrowser
 import urllib
 
 import requests
-import cachecontrol
 import unidecode
 import uritemplate
 
@@ -75,7 +74,6 @@ class HALNavigator(object):
                  auth=None,
                  headers=None,
                  session=None,
-                 cache=False,
                  curie=None,
     ):
         self.root = utils.fix_scheme(root)
@@ -87,13 +85,6 @@ class HALNavigator(object):
         self.default_curie = curie
         self.curies = None
         self.session = session or requests.Session()
-        if cache:
-            if isinstance(cache, cachecontrol.CacheControlAdapter):
-                cc = cache
-            else:
-                cc = cachecontrol.CacheControlAdapter()
-            self.session.mount('http://', cc)
-            self.session.mount('https://', cc)
         self.session.auth = auth
         self.session.headers.update(default_headers())
         if headers:
