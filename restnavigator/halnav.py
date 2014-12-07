@@ -94,7 +94,6 @@ class HALNavigator(object):
         self.state = None
         self.template_uri = None
         self.template_args = None
-        self.parameters = None
         self.templated = False
         self._links = None
         # This is the identity map shared by all descendents of this
@@ -470,7 +469,6 @@ class OrphanResource(HALNavigator):
         self.response = response
         self.template_uri = parent.template_uri
         self.template_args = parent.template_args
-        self.parameters = None
         self.templated = False  # OrphanResource can't be templated
         self._id_map = parent._id_map
         try:
