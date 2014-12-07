@@ -48,8 +48,9 @@ def get_state(hal_body):
 
 
 def template_uri_check(fn):
-    '''A decorator used by Navigators to confirm the templated uri is supplied with all parameters
-     prior to calling the function '''
+    '''A decorator used by Navigators to confirm the templated uri is
+     supplied with all parameters prior to calling the function
+    '''
 
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
@@ -130,7 +131,7 @@ class HALNavigator(object):
         '''Returns the link of the current uri compared against the api root.
 
         This is a good candidate for overriding in a subclass if the api you
-        are interacting with uses an unconventional uri layout.'''
+        are interacting which uses an unconventional uri layout.'''
         if self.uri is None:
             return self.template_uri.replace(self.root, '/')
         else:
@@ -213,12 +214,14 @@ class HALNavigator(object):
         return self.state.copy()
 
     def _copy(self, **kwargs):
-        '''Creates a shallow copy of the HALNavigator that extra attributes can
-        be set on.
+        '''Creates a shallow copy of the HALNavigator that extra
+        attributes can be set on.
 
-        If the object is already in the identity map, that object is returned
-        instead.
-        If the object is templated, it doesn't go into the id_map
+        If the object is already in the identity map, that object is
+        returned instead.
+
+        If the object's `cacheable` attribute is False, it doesn't go
+        into the id_map
         '''
         if 'uri' in kwargs and kwargs['uri'] in self._id_map:
             return self._id_map[kwargs['uri']]
@@ -257,15 +260,16 @@ class HALNavigator(object):
                             json_cls=None,
                             headers=None,
     ):
-        '''
-            Fetches HTTP response using http method (POST or DELETE of requests.Session)
-            Raises HALNavigatorError if response is not positive
+        '''Fetches HTTP response using http method (POST or DELETE of
+        requests.Session) Raises HALNavigatorError if response is not
+        positive
         '''
         if isinstance(body, dict):
             body = json.dumps(body, cls=json_cls, separators=(',', ':'))
         headers = {} if headers is None else headers
         headers['Content-Type'] = content_type
-        response = http_method_fn(self.uri, data=body, headers=headers, allow_redirects=False)
+        response = http_method_fn(
+            self.uri, data=body, headers=headers, allow_redirects=False)
 
         if raise_exc and not response:
             raise HALNavigatorError(
@@ -286,16 +290,13 @@ class HALNavigator(object):
         elif response.status_code == httplib.OK:
             return OrphanResource(parent=self, response=response)
         else:
-            '''
-                Expected hits:
-                CREATED or Redirection without Locaiton,
-                NO_CONTENT = 204
-                ACCEPTED = 202 and
-                4xx, 5xx errors.
+        # Expected hits:
+        # CREATED or Redirection without Locaiton,
+        # NO_CONTENT = 204
+        # ACCEPTED = 202 and
+        # 4xx, 5xx errors.
 
-                If something else, then requires rework
-
-                '''
+        # If something else, then requires rework
             return self.status
 
     @template_uri_check
@@ -305,7 +306,7 @@ class HALNavigator(object):
              content_type='application/json',
              json_cls=None,
              headers=None,
-    ):
+             ):
         '''Performs an HTTP POST to the server, to create a subordinate
         resource. Returns a new HALNavigator representing that resource.
 
@@ -314,12 +315,13 @@ class HALNavigator(object):
         `content_type` may be modified if necessary
         `json_cls` is a JSONEncoder to use rather than the standard
         `headers` are additional headers to send in the request'''
-        response = self.get_http_response( self.session.post,
-                                            body,
-                                            raise_exc,
-                                            content_type,
-                                            json_cls,
-                                            headers,
+        response = self._get_http_response(
+            self.session.post,
+            body,
+            raise_exc,
+            content_type,
+            json_cls,
+            headers,
         )
 
         return self.create_navigator_or_orphan_resource(response)
@@ -331,7 +333,7 @@ class HALNavigator(object):
                content_type='application/json',
                json_cls=None,
                headers=None,
-    ):
+               ):
         '''Performs an HTTP DELETE to the server, to delete resource(s).
         `body` may either be a string or a dictionary which will be serialized
             as json
@@ -339,12 +341,13 @@ class HALNavigator(object):
         `json_cls` is a JSONEncoder to use rather than the standard
         `headers` are additional headers to send in the request'''
 
-        response = self.get_http_response( self.session.delete,
-                                            body,
-                                            raise_exc,
-                                            content_type,
-                                            json_cls,
-                                            headers,
+        response = self._get_http_response(
+            self.session.delete,
+            body=None,
+            raise_exc,
+            content_type,
+            json_cls,
+            headers,
         )
 
         return self.create_navigator_or_orphan_resource(response)
