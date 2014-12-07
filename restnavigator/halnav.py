@@ -251,7 +251,7 @@ class HALNavigator(object):
         else:
             return self.state.copy()
 
-    def get_http_response(self,
+    def _get_http_response(self,
                             http_method_fn,
                             body,
                             raise_exc=True,
@@ -279,7 +279,7 @@ class HALNavigator(object):
             )
         return response
 
-    def create_navigator_or_orphan_resource(self, response):
+    def _create_navigator_or_orphan_resource(self, response):
         if response.status_code in (httplib.CREATED, # Applicable for POST
                                     httplib.FOUND,
                                     httplib.SEE_OTHER,
@@ -323,7 +323,7 @@ class HALNavigator(object):
             headers,
         )
 
-        return self.create_navigator_or_orphan_resource(response)
+        return self._create_navigator_or_orphan_resource(response)
 
     @template_uri_check
     def delete(self,
@@ -348,8 +348,7 @@ class HALNavigator(object):
             json_cls,
             headers,
         )
-
-        return self.create_navigator_or_orphan_resource(response)
+        return self._create_navigator_or_orphan_resource(response)
 
     def __iter__(self):
         '''Part of iteration protocol'''
