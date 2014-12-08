@@ -35,11 +35,10 @@ def autofetch(fn):
     return wrapped
 
 
-def default_headers():
-    '''Default headers for HALNavigator'''
-    return {'Accept': 'application/hal+json,application/json',
-            'User-Agent': 'HALNavigator/{}'.format(__version__)}
-
+DEFAULT_HEADERS = {
+    'Accept': 'application/hal+json,application/json',
+    'User-Agent': 'HALNavigator/{}'.format(__version__)
+}
 
 def get_state(hal_body):
     '''Removes HAL special properties from a HAL+JSON response'''
@@ -64,11 +63,301 @@ def template_uri_check(fn):
     return wrapped
 
 
+class APICore(object):
+    '''Shared data between Navigators from a single api.
+
+    This should contain all state that is generally maintained from
+    one Navigator to the next.
+    '''
+
+    def __init__(self,
+                 root,
+                 apiname=None,
+                 default_curie=None,
+                 session=None,
+                 ):
+        self.root = utils.fix_scheme(root)
+        self.apiname = utils.namify(root) if apiname is None else apiname
+        self.default_curie = default_curie
+        self.session = session or requests.Session
+        self.id_map = WeakValueDictionary({self.root: self})
+
+    def cache(self, uri, nav):
+        '''Stores a Navigator in the identity map for the current
+        api.'''
+        self.id_map[uri] = nav
+
+    def get_cached(self, uri):
+        '''Retrieves a cached Navigator from the id_map'''
+        return self.id_map.get(uri)
+
+    def is_cached(self, uri):
+        '''Returns whether the current Navigator is cached. Intended
+        to be overwritten and customized by subclasses.
+        '''
+        return uri in self.id_map
+
+
+    def authenticate(self, auth):
+        '''Sets the authentication for future requests to the api'''
+        self.session.auth = auth
+
+
+class Link(object):
+    '''Represents an untemplated link'''
+
+    def __init__(self, uri, properties=None):
+        self.uri = uri
+        self.props = properties or {}
+
+    def relative_uri(self, root):
+        '''Returns the link of the current uri compared against an api root'''
+        return self.uri.replace(root, '/')
+
+
+class TemplatedLink(Link):
+    '''Represents a templated link'''
+
+    def __init__(self, uri, properties=None, args=None):
+        super(TemplatedLink, self).__init__(uri, properties)
+        self.args = args or {}
+
+    def expanded_uri(self, **args):
+        '''Returns the template uri expanded with the current arguments'''
+        expandargs = dict([(k, v if v != 0 else '0')
+                           for k, v in self.args.items() + args.items()])
+        return uritemplate.expand(self.template_uri, expandargs)
+
+    @property
+    def variables(self):
+        '''Returns a set of the template variables in this templated
+        link'''
+        return uritemplate.variables(cp.template_uri)
+
+    def expand(self, **args):
+        '''Returns an non-templated version of this templated link'''
+
+        return Link(
+            uri=self.expanded_uri(**args),
+            properties=self.props,
+        )
+
+    def add_args(self, **args):
+        '''Returns a new TemplatedLink with additional arguments baked
+        in. Does not modify the current TemplatedLink.
+        '''
+        argcopy = self.args.copy()
+        argcopy.update(args)
+        return TemplatedLink(
+            uri=self.uri,
+            properties=self.props,
+            args=argcopy
+        )
+
+
+class NavigatorBase(object):
+    '''Base class for navigation objects'''
+
+    def __init__(self,
+                 root,
+                 apiname=None,
+                 default_curie=None,
+                 auth=None,
+                 headers=None,
+                 ):
+        self.self = Link(uri=root)
+        self.response = None
+        self.state = None
+        self.curies = None
+
+        self._core = APICore(
+            root=root,
+            apiname=apiname,
+            default_curie=default_curie,
+        )
+        self._core.authenticate(auth)
+        self._core.session.headers.update(DEFAULT_HEADERS)
+        if headers is not None:
+            self._core.session.headers.update(headers)
+        self._links = None
+
+    @classmethod
+    def _internal_ctor(cls,
+                       link,
+                       core,
+                       response=None,
+                       state=None,
+                       curies=None,
+                       _links=None,
+                       ):
+        '''Internal constructor used for Navigators to create other
+        inNavigators. Not intended to be used by applications using
+        restnavigator'''
+        if link is not None and core.is_cached(link.uri):
+            return core.get_cached(link.uri)
+
+        new_nav = cls.__new__(cls)
+        new_nav.self = link
+        new_nav.response = response
+        new_nav.state = state
+        new_nav.curies = curies
+        new_nav._core = core
+        new_nav._links = _links
+
+        if link is not None:
+            core.cache(link.uri, new_nav)
+
+        return new_nav
+
+    @property
+    def uri(self):
+        return self.self.uri
+
+    @property
+    def apiname(self):
+        return self._core.apiname
+
+    @property
+    def title(self):
+        return self.self.props.get('title')
+
+    @property
+    def profile(self):
+        return self.self.props.get('profile')
+
+    @property
+    def type(self):
+        return self.self.props.get('type')
+
+    def __repr__(self):
+        def path_clean(chunk):
+            if not chunk:
+                return chunk
+            if re.match(r'\d+$', chunk):
+                return '[{}]'.format(chunk)
+            else:
+                return '.' + chunk
+
+        byte_arr = self.self.relative_uri(self._core.root).encode('utf-8')
+        unquoted = urllib.unquote(byte_arr).decode('utf-8')
+        nice_uri = unidecode.unidecode(unquoted)
+        path = ''.join(path_clean(c) for c in nice_uri.split('/'))
+        return "{cls}({name}{path})".format(
+            cls=type(self).__name__, name=self.apiname, path=path)
+
+    def authenticate(self, auth):
+        '''Authenticate with the api'''
+        self._core.authenticate(auth)
+
+    @property
+    @autofetch
+    def links(self):
+        '''Returns a dictionary of Navigators from the current resource'''
+        return dict(self._links)
+
+    @property
+    def status(self):
+        if self.response is not None:
+            return (self.response.status_code, self.response.reason)
+
+    def _make_links_from(self, body):
+        '''Creates linked navigators from a HAL response body'''
+
+        def make_nav(link):
+            '''Crafts the Navigators for each link'''
+            if isinstance(link, list):
+                return utils.LinkList((make_nav(lnk), lnk) for lnk in link)
+            uri = urlparse.urljoin(self.uri, link['href'])
+            templated = link.get('templated', False)
+            if link.get('templated'):
+                return TemplatedLink(uri=uri, properties=link)
+            new_nav = self._internal_ctor(
+                link=Link(uri=uri, properties=link),
+                core=core,
+            )
+            return new_nav
+
+        return utils.LinkDict(
+            self.default_curie,
+            {rel: make_nav(links)
+             for rel, links in body.get('_links', {}).iteritems()
+             if rel not in ['self', 'curies']})
+
+    def __eq__(self, other):
+        '''Equality'''
+        try:
+            return self.uri == other.uri and self.apiname == other.apiname
+        except Exception:
+            return False
+
+    def __ne__(self, other):
+        '''Inequality'''
+        return not self == other
+
+    def __iter__(self):
+        '''Part of iteration protocol'''
+        yield self
+        last = self
+        while True:
+            current = last.next()
+            yield current
+            last = current
+
+    @autofetch
+    def __nonzero__(self):
+        # we override normal exception throwing since the user seems interested
+        # in the boolean value
+        return bool(self.response)
+
+    def next(self):
+        try:
+            return self['next']
+        except KeyError:
+            raise StopIteration()
+    def __getitem__(self, getitem_args):
+        r'''Subselector for a HALNavigator'''
+
+        @autofetch
+        def dereference(n, rels):
+            '''Helper to recursively dereference'''
+            if len(rels) == 1:
+                ret = n._links[rels[0]]
+                if isinstance(ret, list):
+                    if len(ret) == 1:
+                        return ret[0]
+                    else:
+                        return [r._copy() if r.templated else r for r in ret]
+                else:
+                    return ret._copy() if ret.templated else ret
+            else:
+                return dereference(n[rels[0]], rels[1:])
+
+        rels, qargs, slug, ellipsis = utils.normalize_getitem_args(
+            getitem_args)
+        if slug and ellipsis:
+            raise SyntaxError("':' and '...' syntax cannot be combined!")
+        if rels:
+            n = dereference(self, rels)
+        else:
+            n = self
+        if qargs or slug:
+            n = n.expand(_keep_templated=ellipsis, **qargs)
+        return n
+
+    @autofetch
+    def docsfor(self, rel):
+        '''Obtains the documentation for a link relation. Opens in a webbrowser
+        window'''
+        prefix, _rel = rel.split(':')
+        if prefix in self.curies:
+            doc_url = uritemplate.expand(self.curies[prefix], {'rel': _rel})
+        else:
+            doc_url = rel
+        print('opening', doc_url)
+        webbrowser.open(doc_url)
+
 class HALNavigator(object):
     '''The main navigation entity'''
-
-    # See OrphanResource for a non-idempotent Navigator
-    idempotent = True
 
     def __init__(self, root,
                  apiname=None,
@@ -327,10 +616,7 @@ class HALNavigator(object):
 
     @template_uri_check
     def delete(self,
-               body=None,
                raise_exc=True,
-               content_type='application/json',
-               json_cls=None,
                headers=None,
                ):
         '''Performs an HTTP DELETE to the server, to delete resource(s).
