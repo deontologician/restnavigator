@@ -3,20 +3,16 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-__version__ = '0.2'
+__version__ = '1.0pre'
 
-import copy
 from weakref import WeakValueDictionary
 import functools
 import httplib
-import re
 import json
 import urlparse
 import webbrowser
-import urllib
 
 import requests
-import unidecode
 import uritemplate
 
 from restnavigator import exc, utils
@@ -34,31 +30,11 @@ def autofetch(fn):
 
     @functools.wraps(fn)
     def wrapped(self, *args, **qargs):
-        if self.idempotent and self.response is None:
+        if self.self is not None and self.response is None:
             self.fetch(raise_exc=qargs.get('raise_exc', False))
         return fn(self, *args, **qargs)
 
     return wrapped
-
-def objectify_uri(relative_uri):
-    '''Converts uris from path syntax to a json-like object syntax
-
-    Examples:
-       "/blog/3/comments" becomes "blog[3].comments"
-       "car/engine/piston" becomes "car.engine.piston"
-    '''
-    def path_clean(chunk):
-        if not chunk:
-            return chunk
-        if re.match(r'\d+$', chunk):
-            return '[{}]'.format(chunk)
-        else:
-            return '.' + chunk
-
-    byte_arr = relative_uri.encode('utf-8')
-    unquoted = urllib.unquote(byte_arr).decode('utf-8')
-    nice_uri = unidecode.unidecode(unquoted)
-    return ''.join(path_clean(c) for c in nice_uri.split('/'))
 
 def get_state(hal_body):
     '''Removes HAL special properties from a HAL+JSON response'''
@@ -74,15 +50,17 @@ class APICore(object):
 
     def __init__(self,
                  root,
+                 nav_class,
                  apiname=None,
                  default_curie=None,
                  session=None,
                  ):
         self.root = utils.fix_scheme(root)
+        self.nav_class = nav_class
         self.apiname = utils.namify(root) if apiname is None else apiname
         self.default_curie = default_curie
-        self.session = session or requests.Session
-        self.id_map = WeakValueDictionary({self.root: self})
+        self.session = session or requests.Session()
+        self.id_map = WeakValueDictionary()
 
     def cache(self, link, nav):
         '''Stores a Navigator in the identity map for the current
@@ -118,6 +96,10 @@ class APICore(object):
         '''Sets the authentication for future requests to the api'''
         self.session.auth = auth
 
+    def create_navigator(self, link):
+        '''Rehydrates a Navigator with this core given a link'''
+        return self.nav_class(link=link, core=self)
+
 
 class Link(object):
     '''Represents an untemplated link'''
@@ -139,25 +121,11 @@ class TemplatedLink(Link):
         self.args = args or {}
         self._core = core
 
-    def expanded_uri(self, **args):
-        '''Returns the template uri expanded with the current arguments'''
-        expandargs = dict([(k, v if v != 0 else '0')
-                           for k, v in self.args.items() + args.items()])
-        return uritemplate.expand(self.template_uri, expandargs)
-
     @property
     def variables(self):
         '''Returns a set of the template variables in this templated
         link'''
         return uritemplate.variables(self.uri)
-
-    def expand(self, **args):
-        '''Returns an non-templated version of this templated link'''
-
-        return Link(
-            uri=self.expanded_uri(**args),
-            properties=self.props,
-        )
 
     def add_args(self, **args):
         '''Returns a new TemplatedLink with additional arguments baked
@@ -171,6 +139,41 @@ class TemplatedLink(Link):
             args=argcopy
         )
 
+    def expand_uri(self, **args):
+        '''Returns the template uri expanded with the current arguments'''
+        expandargs = dict([(k, v if v != 0 else '0')
+                           for k, v in self.args.items() + args.items()])
+        return uritemplate.expand(self.template_uri, expandargs)
+
+    def expand_link(self, **args):
+        '''Expands this TemplatedLink with the given arguments and
+        returns a new Link (untemplated).
+        '''
+        props = self.props.copy()
+        del props['templated']
+        return Link(
+            uri=self.expand_uri(**args),
+            properties=props,
+        )
+
+    def navigator(self, **args):
+        '''Expands the current TemplatedLink into a new Navigator from
+        the APICore passed in. Keyword args are supplied to the uri
+        template.
+        '''
+        return self._core.create_navigator(self.expand_link(**args))
+
+    def __getitem__(self, getitem_args):
+        _, qargs, slug, ellipsis = utils.normalize_getitem_args(
+            getitem_args)
+        if slug and ellipsis:
+            raise SyntaxError("':' and '...' syntax cannot be combined!")
+        elif slug or qargs:
+            return self.navigator(**qargs)
+        elif ellipsis:
+            return self.add_args(**qargs)
+        else:
+            raise Exception('Impossible!', qargs, slug, ellipsis)
 
 class Navigator(object):
     '''A factory for other Navigators. Makes creating them more
@@ -184,13 +187,15 @@ class Navigator(object):
             link=Link(uri=root),
             core=APICore(
                 root=root,
+                nav_class=HALNavigator,
                 apiname=apiname,
-                default_curie=default_curie
+                default_curie=default_curie,
             )
         )
         halnav.authenticate(auth)
         halnav.headers.update(DEFAULT_HEADERS)
-        halnav.headers.update(headers)
+        if headers is not None:
+            halnav.headers.update(headers)
         return halnav
 
 
@@ -201,12 +206,11 @@ class HALNavigatorBase(object):
 
     def __new__(cls, link, core, *args, **kwargs):
         '''New decides whether we need a new instance or whether it's
-        inalready in the id_map of the core'''
+        already in the id_map of the core'''
         if core.is_cached(link):
             return core.get_cached(link.uri)
         else:
-            return super(HALNavigatorBase, cls).__new__(
-                cls, link, core, *args, **kwargs)
+            return super(HALNavigatorBase, cls).__new__(cls)
 
     def __init__(self, link, core,
                  response=None,
@@ -255,7 +259,7 @@ class HALNavigatorBase(object):
 
     def __repr__(self):
         relative_uri = self.self.relative_uri(self._core.root)
-        objectified_uri = objectify_uri(relative_uri)
+        objectified_uri = utils.objectify_uri(relative_uri)
         return "{cls}({name}{path})".format(
             cls=type(self).__name__, name=self.apiname, path=objectified_uri)
 
@@ -270,9 +274,9 @@ class HALNavigatorBase(object):
         return dict(self._links)
 
     @property
+    @autofetch
     def status(self):
-        if self.response is not None:
-            return (self.response.status_code, self.response.reason)
+        return (self.response.status_code, self.response.reason)
 
     def _make_links_from(self, body):
         '''Creates linked navigators from a HAL response body'''
@@ -291,7 +295,7 @@ class HALNavigatorBase(object):
                 )
 
         return utils.LinkDict(
-            self.default_curie,
+            self._core.default_curie,
             {rel: make_nav(links)
              for rel, links in body.get('_links', {}).iteritems()
              if rel not in ['self', 'curies']})

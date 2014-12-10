@@ -145,6 +145,29 @@ def namify(root_uri):
     )
 
 
+def objectify_uri(relative_uri):
+    '''Converts uris from path syntax to a json-like object syntax.
+    In addition, url escaped characters are unescaped, but non-ascii
+    characters a romanized using the unidecode library.
+
+    Examples:
+       "/blog/3/comments" becomes "blog[3].comments"
+       "car/engine/piston" becomes "car.engine.piston"
+    '''
+    def path_clean(chunk):
+        if not chunk:
+            return chunk
+        if re.match(r'\d+$', chunk):
+            return '[{}]'.format(chunk)
+        else:
+            return '.' + chunk
+
+    byte_arr = relative_uri.encode('utf-8')
+    unquoted = urllib.unquote(byte_arr).decode('utf-8')
+    nice_uri = unidecode.unidecode(unquoted)
+    return ''.join(path_clean(c) for c in nice_uri.split('/'))
+
+
 class LinkList(list):
     '''A list subclass that offers different ways of grabbing the values based
     on various metadata stored for each entry in the dictionary.

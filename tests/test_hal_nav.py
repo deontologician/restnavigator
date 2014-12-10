@@ -75,7 +75,7 @@ def register_hal(uri='http://www.example.com/',
 
 
 def test_HALNavigator__creation():
-    N = HN.HALNavigator('http://www.example.com')
+    N = HN.Navigator.hal('http://www.example.com')
     assert type(N) == HN.HALNavigator
     assert repr(N) == "HALNavigator(Example)"
 
@@ -86,8 +86,8 @@ def test_HALNavigator__creation():
     ('api1', 'http://www.aaa.com', 'api1', 'http://www.aaa.com', True),
 ])
 def test_HALNavigator__eq__(name1, uri1, name2, uri2, equal):
-    N1 = HN.HALNavigator(uri1, apiname=name1)
-    N2 = HN.HALNavigator(uri2, apiname=name2)
+    N1 = HN.Navigator.hal(uri1, apiname=name1)
+    N2 = HN.Navigator.hal(uri2, apiname=name2)
     if equal:
         assert N1 == N2
         assert N2 == N1
@@ -97,7 +97,7 @@ def test_HALNavigator__eq__(name1, uri1, name2, uri2, equal):
 
 
 def test_HALNavigator__eq__nonnav():
-    N = HN.HALNavigator('http://www.example.com')
+    N = HN.Navigator.hal('http://www.example.com')
     assert N != 'http://www.example.com'
     assert 'http://www.example.com' != N
 
@@ -114,9 +114,9 @@ def test_HALNAvigator__repr():
                                  'last': {'href': last_uri},
                                  'describes': {'href': user_uri}})
 
-        N_1 = HN.HALNavigator(index_uri)
+        N_1 = HN.Navigator.hal(index_uri)
         assert repr(N_1) == "HALNavigator(ExampleAPI)"
-        N = HN.HALNavigator(index_uri, apiname='exampleAPI')
+        N = HN.Navigator.hal(index_uri, apiname='exampleAPI')
         assert repr(N) == "HALNavigator(exampleAPI)"
         assert repr(N['first']) == "HALNavigator(exampleAPI.first)"
         assert repr(N['next']) == \
@@ -132,9 +132,9 @@ def test_HALNavigator__links():
                      links={'ht:users': {
                          'href': 'http://www.example.com/users'}}
         )
-        N = HN.HALNavigator('http://www.example.com')
+        N = HN.Navigator.hal('http://www.example.com')
         expected = {
-            'ht:users': HN.HALNavigator('http://www.example.com')['ht:users']
+            'ht:users': HN.Navigator.hal('http://www.example.com')['ht:users']
         }
         assert N.links == expected
 
@@ -145,7 +145,7 @@ def test_HALNavigator__call():
         server_state = dict(some_attribute='some value')
         register_hal(uri=uri, state=server_state, title='Example Title')
 
-        N = HN.HALNavigator(uri)
+        N = HN.Navigator.hal(uri)
         assert N.state is None
         assert N() == server_state
         assert N.state == N()
@@ -155,10 +155,10 @@ def test_HALNavigator__call():
 
 def test_HALNavigator__init_accept_schemaless():
     uri = 'www.example.com'
-    N = HN.HALNavigator(uri)
+    N = HN.Navigator.hal(uri)
     assert N.uri == 'http://' + uri
     uri2 = 'http://example.com'
-    N_first = HN.HALNavigator(uri2)
+    N_first = HN.Navigator.hal(uri2)
     assert N_first.uri == uri2
 
 
@@ -168,7 +168,7 @@ def test_HALNavigator__getitem_self_link():
         title = 'Some kinda title'
         register_hal(uri, title=title)
 
-        N = HN.HALNavigator(uri)
+        N = HN.Navigator.hal(uri)
         N()  # fetch it
         assert N.title == title
 
@@ -189,7 +189,7 @@ def test_HALNavigator__identity_map():
         register_hal(page2_uri, page2_links)
         register_hal(page3_uri, page3_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         page1 = N['first']
         page2 = N['first']['next']
         page3 = N['first']['next']['next']
@@ -213,7 +213,7 @@ def test_HALNavigator__iteration():
                 page_links = {}
             register_hal(page_uri, page_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         Nitems = N['first']
         captured = []
         for i, nav in enumerate(Nitems, start=1):
@@ -237,7 +237,7 @@ def test_HALNavigator__expand():
         }}
         register_hal(index_uri, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
 
         unexpanded = N['template']
         unexpanded2 = N['template']
@@ -280,7 +280,7 @@ def test_HALNavigator__dont_get_template_links():
         }}
         register_hal(index_regex, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         with pytest.raises(TypeError):
             assert N['page': 0]  # N is not templated
         with pytest.raises(HN.exc.AmbiguousNavigationError):
@@ -310,7 +310,7 @@ def test_HALNavigator__getitem_gauntlet():
         }}
         register_hal(index_regex, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         expanded_nav = N['first', 'page':0, 'max':1]
         assert expanded_nav.uri == uritemplate.expand(template_href,
                                                       {'max': 1, 'page': '0'})
@@ -372,7 +372,7 @@ def test_HALNavigator__bad_getitem_objs():
         }}
         register_hal(index_regex, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         with pytest.raises(TypeError):
             N[{'set'}]
         with pytest.raises(TypeError):
@@ -391,7 +391,7 @@ def test_HALNavigator__double_dereference():
         register_hal(first_uri, first_links)
         register_hal(second_uri, second_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert N['first', 'second'].uri == second_uri
 
 
@@ -402,7 +402,7 @@ def test_HALNavigator__parameters():
                                  'templated': True}}
         register_hal(index_uri, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert N['about'].parameters == set(['a', 'b', 'q', 'r', 'domain'])
 
 
@@ -416,7 +416,7 @@ def test_HALNavigator__status(status, reason):
         index_uri = 'http://www.example.com/'
         register_hal(index_uri, status=status)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert N.status is None
         N()
         assert N.status == (status, reason)
@@ -436,7 +436,7 @@ def test_HALNavigator__raise_exc(status, raise_exc):
         register_hal(index_uri, index_links)
         register_hal(next_uri, status=status)
 
-        N = HN.HALNavigator('http://www.example.com/')
+        N = HN.Navigator.hal('http://www.example.com/')
         if raise_exc:
             with pytest.raises(HN.HALNavigatorError):
                 N['next']()
@@ -459,7 +459,7 @@ def test_HALNavigator__boolean(status, boolean):
     with httprettify():
         register_hal(status=status)
 
-        N = HN.HALNavigator('http://www.example.com/')
+        N = HN.Navigator.hal('http://www.example.com/')
         if boolean:
             assert N
         else:
@@ -470,12 +470,12 @@ def test_HALNavigator__boolean_fetched():
     with httprettify():
         register_hal(status=200)
 
-        N = HN.HALNavigator('http://www.example.com/')
+        N = HN.Navigator.hal('http://www.example.com/')
         N()
         assert N
 
         register_hal(status=500)
-        N = HN.HALNavigator('http://www.example.com/')
+        N = HN.Navigator.hal('http://www.example.com/')
         N(raise_exc=False)
         assert not N
 
@@ -494,7 +494,7 @@ def test_HALNavigator__multiple_links():
         }
         register_hal(index_uri, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert isinstance(N['about'], HN.HALNavigator)
         assert isinstance(N['alternate'], list)
         for i, n in enumerate(N['alternate']):
@@ -520,7 +520,7 @@ def test_HALNavigator__multilink_gauntlet():
         register_hal(second_b_uri, second_links)
         register_hal(third_uri, index_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         N_1 = N['first']
         N_2a = N['first', 'next'][0]
         N_2b = N['first', 'next'][1]
@@ -547,7 +547,7 @@ def test_HALNavigator__relative_link():
                            'templated': True}],
         }
         register_hal(index_uri, index_links)
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert N['alternate'][0].relative_uri == '/' + relative_uri
         assert N['alternate'][1].relative_uri == '/' + relative_templated
 
@@ -566,7 +566,7 @@ def test_HALNavigator__fetch():
                                headers={'content_type': 'application/hal+json',
                                         'server': 'HTTPretty 0.6.0'},
                                responses=responses)
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         fetch1 = N()
         fetch2 = N()
         fetch3 = N.fetch()
@@ -595,7 +595,7 @@ def test_HALNavigator__create(redirect_status, post_body):
                                location=new_resource_uri,
                                status=redirect_status,
         )
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         N2 = N['hosts'].create(post_body)
         assert HTTPretty.last_request.method == 'POST'
         last_content_type = HTTPretty.last_request.headers['content-type']
@@ -625,7 +625,7 @@ def test_HALNavigator__create(status_code, post_body):
                                location=new_resource_uri,
                                status=status_code,
         )
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         N2 = N['hosts'].create(post_body)
         assert HTTPretty.last_request.method == 'POST'
         last_content_type = HTTPretty.last_request.headers['content-type']
@@ -657,7 +657,7 @@ def test_HALNavigator__delete(status_code, delete_body):
                                location=new_resource_uri,
                                status=status_code,
         )
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         N2 = N['hosts'].delete(delete_body)
         assert HTTPretty.last_request.method == 'DELETE'
         last_content_type = HTTPretty.last_request.headers['content-type']
@@ -694,7 +694,7 @@ def test_OrphanResource__basic(status, body, content_type):
             content_type=content_type,
         )
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         N2 = N['hosts']
         OR = N2.create({})  # OR = OrphanResource
 
@@ -732,7 +732,7 @@ def test_HALNavigator__relative_links():
         register_hal(index_uri, index_links)
         register_hal(about_full_uri, about_links)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         assert N['about'].uri == 'http://www.example.com/about/'
         assert N['about', 'alternate'].uri == \
                'http://www.example.com/about/alternate'
@@ -763,10 +763,10 @@ def test_HALNavigator__authenticate(random_string):
             req.headers['Password'] = password
             return req
 
-        N = HN.HALNavigator(index_uri, apiname='N1', auth=toy_auth)
+        N = HN.Navigator.hal(index_uri, apiname='N1', auth=toy_auth)
         assert N['start']()['authenticated']
 
-        N2 = HN.HALNavigator(index_uri, apiname='N2', auth=None)
+        N2 = HN.Navigator.hal(index_uri, apiname='N2', auth=None)
         N2_auth = N2['start']
         N2_auth(raise_exc=False)
         assert N2_auth.status == (401, 'Unauthorized')
@@ -781,7 +781,7 @@ def test_HALNavigator__not_json():
         html = '<p>\n\tThis is not JSON\n</p>'
         HTTPretty.register_uri('GET', index_uri, body=html)
 
-        N = HN.HALNavigator(index_uri)
+        N = HN.Navigator.hal(index_uri)
         with pytest.raises(HN.UnexpectedlyNotJSON):
             N()
 
@@ -792,7 +792,7 @@ def test_HALNavigator__custom_headers():
         register_hal(index_uri, {})
 
         custom_headers = {'X-Pizza': 'true'}
-        N = HN.HALNavigator(index_uri, headers=custom_headers)
+        N = HN.Navigator.hal(index_uri, headers=custom_headers)
         N()
         assert HTTPretty.last_request.headers.get('X-Pizza')
 
@@ -832,7 +832,7 @@ def test_HALNavigator__get_by_properties_single(bigtest_1):
     with httprettify() as HTTPretty:
         register_hal(bigtest_1.index_uri, bigtest_1.index_links)
 
-        N = HN.HALNavigator(bigtest_1.index_uri)
+        N = HN.Navigator.hal(bigtest_1.index_uri)
         baz = N.links['test:foo'].get_by('name', 'baz')
         bar = N.links['test:foo'].get_by('name', 'bar')
         qux = N.links['test:foo'].get_by('name', 'qux')
@@ -847,7 +847,7 @@ def test_HALNavigator__get_by_properties_multi(bigtest_1):
     with httprettify() as HTTPretty:
         register_hal(bigtest_1.index_uri, bigtest_1.index_links)
 
-        N = HN.HALNavigator(bigtest_1.index_uri)
+        N = HN.Navigator.hal(bigtest_1.index_uri)
         bar = N.links['test:foo'].get_by('name', 'bar')
         baz = N.links['test:foo'].get_by('name', 'baz')
         qux = N.links['test:foo'].get_by('name', 'qux')
@@ -887,7 +887,7 @@ def test_HALNavigator__default_curie_noconflict(reltest_links):
         index_uri = "http://example.com/api"
         register_hal(index_uri, links=reltest_links)
 
-        N = HN.HALNavigator(index_uri, curie="xx")
+        N = HN.Navigator.hal(index_uri, curie="xx")
 
         N1 = N['nonstandard-rel']
         N2 = N['xx:nonstandard-rel']
@@ -900,7 +900,7 @@ def test_HALNavigator__default_curie_conflict(reltest_links):
         index_uri = "http://example.com/api"
         register_hal(index_uri, links=reltest_links)
 
-        N = HN.HALNavigator(index_uri, curie="xx")
+        N = HN.Navigator.hal(index_uri, curie="xx")
 
         N1 = N['next']
 
@@ -916,7 +916,7 @@ def test_HALNavigator__default_curie_wrong_curie(reltest_links):
         index_uri = "http://example.com/api"
         register_hal(index_uri, links=reltest_links)
 
-        N = HN.HALNavigator(index_uri, curie="xx")
+        N = HN.Navigator.hal(index_uri, curie="xx")
 
         N1 = N['nonstandard-rel']
         N2 = N['yy:nonstandard-rel']
@@ -930,6 +930,6 @@ def test_HALNavigator__default_curie_iana_conflict(reltest_links):
         del reltest_links['next']
         register_hal(index_uri, links=reltest_links)
 
-        N = HN.HALNavigator(index_uri, curie="xx")
+        N = HN.Navigator.hal(index_uri, curie="xx")
 
         assert N['next'] is N['xx:next']

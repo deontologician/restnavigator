@@ -1,2 +1,2 @@
 
-from .halnav import HALNavigator
+from .halnav import Navigator
