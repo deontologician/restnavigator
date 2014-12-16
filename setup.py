@@ -27,7 +27,7 @@ setup(
     license="MIT",
     packages=['restnavigator'],
     keywords=['REST', 'HAL', 'json', 'http'],
-    install_requires=["requests>=1.1.0, <=2.2.0",
+    install_requires=["requests>=2.5.0",
                       "uritemplate>=0.6.0",
                       "Unidecode>=0.04.14",
                       ],
