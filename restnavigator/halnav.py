@@ -31,24 +31,6 @@ PATCH = 'PATCH'
 PUT = 'PUT'
 
 
-def autofetch(fn):
-    '''A decorator used by navigators that fetches the resource if necessary
-    prior to calling the function '''
-
-    @functools.wraps(fn)
-    def wrapped(self, *args, **qargs):
-        if self.self is not None and self.response is None:
-            self.fetch(raise_exc=qargs.get('raise_exc', False))
-        return fn(self, *args, **qargs)
-
-    return wrapped
-
-def get_state(hal_body):
-    '''Removes HAL special properties from a HAL+JSON response'''
-    return {k: v for k, v in hal_body.iteritems()
-            if k not in ['_links']}
-
-
 class APICore(object):
     '''Shared data between navigators from a single api.
 
@@ -256,10 +238,12 @@ class HALNavigatorBase(object):
         '''Authenticate with the api'''
         self._core.authenticate(auth)
 
-    @property
-    @autofetch
     def links(self):
-        '''Returns a dictionary of navigators from the current resource'''
+        '''Returns a dictionary of navigators from the current
+        resource. Fetches the resource if necessary.
+        '''
+        if not self.fetched:
+            self.fetch()
         return dict(self._links)
 
     @property
@@ -287,14 +271,11 @@ class HALNavigatorBase(object):
             yield current
             last = current
 
-    def fetch(self, *args, **kwargs):
-        '''No-op fetch. Overridden by subclasses'''
-        pass
-
-    @autofetch
     def __nonzero__(self):
-        # we override normal exception throwing since the user seems interested
-        # in the boolean value
+        if self.response is None:
+            raise exc.NoResponseError(
+                'this navigator has not been fetched '
+                'yet, so we cannot determine if it succeeded')
         return bool(self.response)
 
     def next(self):
@@ -306,9 +287,9 @@ class HALNavigatorBase(object):
     def __getitem__(self, getitem_args):
         r'''Subselector for a HALNavigator'''
 
-        @autofetch
         def dereference(n, rels):
             '''Helper to recursively dereference'''
+            n() # fetch the resource if necessary
             if len(rels) == 1:
                 navigators = n._links[rels[0]]
                 if isinstance(navigators, list):
@@ -329,7 +310,6 @@ class HALNavigatorBase(object):
         n = dereference(self, rels)
         return n
 
-    @autofetch
     def docsfor(self, rel):
         '''Obtains the documentation for a link relation. Opens in a webbrowser
         window'''
@@ -371,30 +351,23 @@ class HALNavigatorBase(object):
         else:
             return HALNavigator(link_obj, core=self._core)
 
-    def _ingest_response(self, response, raise_exc=True):
+    def _ingest_response(self, hal_json, headers):
         '''Takes a response object and ingests state, links, and
         updates the self link of this navigator to correspond. This
         will only work if the response is valid JSON'''
-        self.response = response
-        try:
-            body = json.loads(self.response.text)
-        except ValueError:
-            if raise_exc:
-                raise UnexpectedlyNotJSON(
-                    "The resource at {.uri} wasn't valid JSON", self.response)
-            else:
-                return
-        self._links = self._make_links_from(body)
+        self._links = self._make_links_from(hal_json)
         # Set properties from new document's self link
-        self.self.props.update(body.get('_links', {}).get('self', {}))
+        self.self.props.update(hal_json.get('_links', {}).get('self', {}))
         # Set the self.type to the content_type of the returned document
-        self.self.props['type'] = self.response.headers.get(
+        self.self.props['type'] = headers.get(
             'Content-Type', self.DEFAULT_CONTENT_TYPE)
         # Set curies if available
         self.curies = {curie['name']: curie['href']
-                       for curie in body.get('_links', {}).get('curies', [])}
-        # Remove state
-        self.state = get_state(body)
+                       for curie in
+                       hal_json.get('_links', {}).get('curies', [])}
+        # Set state by removing HAL attributes
+        self.state = {k: v for k, v in hal_json.iteritems()
+                      if k not in ['_links']}
 
 
 class HALNavigator(HALNavigatorBase):
@@ -406,27 +379,8 @@ class HALNavigator(HALNavigatorBase):
         else:
             return self.state.copy()
 
-    def _request(self, method, body=None, raise_exc=True, headers=None):
-        '''Fetches HTTP response using the passed http method. Raises
-        HALNavigatorError if response is in the 400-500 range.'''
-        response = self._core.session.request(
-            method=method,
-            url=self.uri,
-            data=body if not isinstance(body, dict) else None,
-            json=body if isinstance(body, dict) else None,
-            headers=headers,
-        )
-        if raise_exc and not response:
-            raise HALNavigatorError(
-                message=response.text,
-                status=response.status_code,
-                nav=self,
-                response=response,
-            )
-        else:
-            return response
-
     def _create_navigator(self, response, raise_exc=True):
+        '''Create the appropriate navigator from an api response'''
         method = response.request.method
         # TODO: refactor once hooks in place
         if method in (POST, PUT, PATCH, DELETE) \
@@ -449,18 +403,51 @@ class HALNavigator(HALNavigatorBase):
             )
         elif method == GET:
             nav = self
+            nav.response = response
         else:
             assert False, "This shouldn't happen"
 
         # Process state / links etc here
         if response.headers['content-type'] == nav.DEFAULT_CONTENT_TYPE:
-            nav._ingest_response(response, raise_exc)
+            try:
+                hal_body = json.loads(response.text)
+            except ValueError:
+                raise exc.UnexpectedlyNotJSON(
+                    "The resource at {.uri} wasn't valid JSON", response)
+            nav._ingest_response(hal_body, response.headers)
+        else:
+            raise exc.HALNavigatorError(
+                message="Unexpectedly not HAL! I don't know how to handle this",
+                nav=nav,
+                status=response.status_code,
+                response=response,
+            )
         return nav
+
+    def _request(self, method, body=None, raise_exc=True, headers=None):
+        '''Fetches HTTP response using the passed http method. Raises
+        HALNavigatorError if response is in the 400-500 range.'''
+        response = self._core.session.request(
+            method,
+            self.uri,
+            data=body if not isinstance(body, dict) else None,
+            json=body if isinstance(body, dict) else None,
+            headers=headers,
+        )
+        nav = self._create_navigator(response, raise_exc=raise_exc)
+        if raise_exc and not response:
+            raise exc.HALNavigatorError(
+                message=response.text,
+                status=response.status_code,
+                nav=nav,  # may be self
+                response=response,
+            )
+        else:
+            return nav
 
     def fetch(self, raise_exc=True):
         '''Performs a GET request to the uri of this navigator'''
-        response = self._request(GET, raise_exc=raise_exc)
-        self._create_navigator(response, raise_exc)
+        self._request(GET, raise_exc=raise_exc)  # ingests response
         return self.state.copy()
 
     def create(self, body, raise_exc=True, headers=None):
@@ -471,16 +458,14 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        response = self._request('POST', body, raise_exc, headers)
-        return self._create_navigator(response, raise_exc)
+        return self._request(POST, body, raise_exc, headers)
 
     def delete(self, raise_exc=True, headers=None):
         '''Performs an HTTP DELETE to the server, to delete resource(s).
 
         `headers` are additional headers to send in the request'''
 
-        response = self._request('DELETE', None, raise_exc, headers)
-        return self._create_navigator(response, raise_exc)
+        return self._request(DELETE, None, raise_exc, headers)
 
     def upsert(self, body, raise_exc=True, headers=False):
         '''Performs an HTTP PUT to the server. This is an idempotent
@@ -490,8 +475,7 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        response = self._request('PUT', body, raise_exc, headers)
-        return self._create_navigator(response, raise_exc)
+        return self._request(PUT, body, raise_exc, headers)
 
     def patch(self, body, raise_exc=True, headers=False):
         '''Performs an HTTP PATCH to the server. This is a
@@ -502,8 +486,7 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        response = self._request('PATCH', body, raise_exc, headers)
-        return self._create_navigator(response)
+        return self._request(PATCH, body, raise_exc, headers)
 
 
 class OrphanHALNavigator(HALNavigator):
@@ -512,9 +495,8 @@ class OrphanHALNavigator(HALNavigator):
 
     This navigator cannot be fetched or created, but has a special
     property called `.parent` that refers to the navigator this one
-    was created from. If the result is a HAL document,
-    this object's `.links` property will be populated.
-
+    was created from. If the result is a HAL document, it will be
+    populated properly
     '''
     def __init__(self, link, core,
                  response=None,
@@ -529,28 +511,3 @@ class OrphanHALNavigator(HALNavigator):
 
     def __call__(self, *args, **kwargs):
         return self.state.copy()
-
-
-class HALNavigatorError(Exception):
-    '''Raised when a response is an error
-
-    Has all of the attributes of a normal HALNavigator. The error body can be
-    returned by examining response.body '''
-
-    def __init__(self, message, nav=None, status=None, response=None):
-        self.nav = nav
-        self.response = response
-        self.message = message
-        self.status = status
-        super(HALNavigatorError, self).__init__(message)
-
-
-class UnexpectedlyNotJSON(TypeError):
-    '''Raised when a non-json parseable resource is gotten'''
-
-    def __init__(self, msg, response):
-        self.msg = msg
-        self.response = response
-
-    def __repr__(self):  # pragma: nocover
-        return '{.msg}:\n\n\n{.response}'.format(self)

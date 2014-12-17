@@ -11,7 +11,7 @@ import pytest
 import uritemplate
 
 import restnavigator.halnav as HN
-
+from restnavigator.exc import HALNavigatorError, UnexpectedlyNotJSON
 
 
 # pylint: disable-msg=E1101
@@ -136,7 +136,7 @@ def test_HALNavigator__links():
         expected = {
             'ht:users': HN.Navigator.hal('http://www.example.com')['ht:users']
         }
-        assert N.links == expected
+        assert N.links() == expected
 
 
 def test_HALNavigator__call():
@@ -440,11 +440,11 @@ def test_HALNavigator__raise_exc(status, raise_exc):
 
         N = HN.Navigator.hal('http://www.example.com/')
         if raise_exc:
-            with pytest.raises(HN.HALNavigatorError):
+            with pytest.raises(HALNavigatorError):
                 N['next']()
             try:
                 N['next'].fetch()
-            except HN.HALNavigatorError as hn:
+            except HALNavigatorError as hn:
                 assert hn.nav.status[0] == status
         else:
             N['next'](raise_exc=False)
@@ -462,6 +462,7 @@ def test_HALNavigator__boolean(status, boolean):
         register_hal(status=status)
 
         N = HN.Navigator.hal('http://www.example.com/')
+        N(raise_exc=False)
         if boolean:
             assert N
         else:
@@ -555,12 +556,19 @@ def test_HALNavigator__fetch():
         index_links = {'self': {'href': index_uri}}
         body1 = {'name': 'body1', '_links': index_links}
         body2 = {'name': 'body2', '_links': index_links}
-        responses = [httpretty.Response(body=json.dumps(body1)),
-                     httpretty.Response(body=json.dumps(body2))]
+        responses = [
+            httpretty.Response(
+                body=json.dumps(body1),
+                content_type='application/hal+json',
+            ),
+            httpretty.Response(
+                body=json.dumps(body2),
+                content_type='application/hal+json',
+            )
+        ]
         HTTPretty.register_uri(method='GET',
                                uri=index_re,
-                               headers={'content_type': 'application/hal+json',
-                                        'server': 'HTTPretty 0.6.0'},
+                               content_type='application/hal+json',
                                responses=responses)
         N = HN.Navigator.hal(index_uri)
         fetch1 = N()
@@ -591,16 +599,18 @@ def test_HALNavigator__create(status_code, post_body):
                                status=status_code,
         )
         N = HN.Navigator.hal(index_uri)
-        N2 = N['hosts'].create(post_body)
-        assert HTTPretty.last_request.method == 'POST'
+        N2 = N['hosts']
+        N3 = N2.create(post_body)
+        last_request_method = HTTPretty.last_request.method
+        assert last_request_method == 'POST'
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
         assert HTTPretty.last_request.body == '{"name":"foo"}'
         if status_code == 202:
-            assert N2 is None
+            assert N3 is None
         else:
-            assert N2.uri == new_resource_uri
-            assert not N2.fetched
+            assert N3.uri == new_resource_uri
+            assert not N3.fetched
 
 @pytest.mark.parametrize(('status_code', 'delete_body'), [
     (204, ''),
@@ -677,11 +687,11 @@ def test_OrphanResource__basic(status, body, content_type):
         elif content_type == 'application/json':
             assert OR.state == {'hi': 'there'}
         elif content_type == 'application/hal+json':
-            assert 'alternate' in OR.links
-            assert OR.links['alternate'].uri == 'http://www.example.com/hogo'
+            assert 'alternate' in OR.links()
+            assert OR.links()['alternate'].uri == 'http://www.example.com/hogo'
         elif status == 204:
             assert OR.state == {}
-            assert OR.links == {}
+            assert OR.links() == {}
 
         assert OR() == OR.state
 
@@ -747,7 +757,7 @@ def test_HALNavigator__not_json():
         HTTPretty.register_uri('GET', index_uri, body=html)
 
         N = HN.Navigator.hal(index_uri)
-        with pytest.raises(HN.UnexpectedlyNotJSON):
+        with pytest.raises(UnexpectedlyNotJSON):
             N()
 
 
@@ -798,10 +808,10 @@ def test_HALNavigator__get_by_properties_single(bigtest_1):
         register_hal(bigtest_1.index_uri, bigtest_1.index_links)
 
         N = HN.Navigator.hal(bigtest_1.index_uri)
-        baz = N.links['test:foo'].get_by('name', 'baz')
-        bar = N.links['test:foo'].get_by('name', 'bar')
-        qux = N.links['test:foo'].get_by('name', 'qux')
-        not_found = N.links['test:foo'].get_by('name', 'not_found')
+        baz = N.links()['test:foo'].get_by('name', 'baz')
+        bar = N.links()['test:foo'].get_by('name', 'bar')
+        qux = N.links()['test:foo'].get_by('name', 'qux')
+        not_found = N.links()['test:foo'].get_by('name', 'not_found')
         assert baz.uri == bigtest_1.index_links['test:foo'][1]['href']
         assert bar.uri == bigtest_1.index_links['test:foo'][0]['href']
         assert qux.uri == bigtest_1.index_links['test:foo'][2]['href']
@@ -813,17 +823,17 @@ def test_HALNavigator__get_by_properties_multi(bigtest_1):
         register_hal(bigtest_1.index_uri, bigtest_1.index_links)
 
         N = HN.Navigator.hal(bigtest_1.index_uri)
-        bar = N.links['test:foo'].get_by('name', 'bar')
-        baz = N.links['test:foo'].get_by('name', 'baz')
-        qux = N.links['test:foo'].get_by('name', 'qux')
+        bar = N.links()['test:foo'].get_by('name', 'bar')
+        baz = N.links()['test:foo'].get_by('name', 'baz')
+        qux = N.links()['test:foo'].get_by('name', 'qux')
 
-        bazs = N.links['test:foo'].getall_by('name', 'baz')
+        bazs = N.links()['test:foo'].getall_by('name', 'baz')
         assert bazs == [baz]
-        not_founds = N.links['test:foo'].getall_by('name', 'not_founds')
+        not_founds = N.links()['test:foo'].getall_by('name', 'not_founds')
         assert not_founds == []
-        widgets = N.links['test:foo'].getall_by('profile',
+        widgets = N.links()['test:foo'].getall_by('profile',
                                                 bigtest_1.widget_profile)
-        gadgets = N.links['test:foo'].getall_by('profile',
+        gadgets = N.links()['test:foo'].getall_by('profile',
                                                 bigtest_1.gadget_profile)
         assert widgets == [bar, qux]
         assert gadgets == [baz]
