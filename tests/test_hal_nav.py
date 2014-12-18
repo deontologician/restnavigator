@@ -605,7 +605,7 @@ def test_HALNavigator__create(status_code, post_body):
         assert last_request_method == 'POST'
         last_content_type = HTTPretty.last_request.headers['content-type']
         assert last_content_type == 'application/json'
-        assert HTTPretty.last_request.body == '{"name":"foo"}'
+        assert HTTPretty.last_request.body == '{"name": "foo"}'
         if status_code == 202:
             assert N3 is None
         else:

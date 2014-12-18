@@ -351,16 +351,50 @@ class HALNavigatorBase(object):
         else:
             return HALNavigator(link_obj, core=self._core)
 
-    def _ingest_response(self, hal_json, headers):
-        '''Takes a response object and ingests state, links, and
-        updates the self link of this navigator to correspond. This
-        will only work if the response is valid JSON'''
-        self._links = self._make_links_from(hal_json)
-        # Set properties from new document's self link
-        self.self.props.update(hal_json.get('_links', {}).get('self', {}))
+    def _can_parse(self, content_type):
+        '''Whether this navigator can parse the given content-type'''
+        return content_type == self.DEFAULT_CONTENT_TYPE
+
+    def _parse_content(self, text):
+        '''Parses the content of a response body into the correct
+        format for .state.
+        '''
+        try:
+            return json.loads(text)
+        except ValueError:
+            raise exc.UnexpectedlyNotJSON(
+                "The resource at {.uri} wasn't valid JSON", self)
+
+    def _update_self_link(self, link, headers):
+        '''Update the self link of this navigator'''
+        self.self.props.update(link)
         # Set the self.type to the content_type of the returned document
         self.self.props['type'] = headers.get(
             'Content-Type', self.DEFAULT_CONTENT_TYPE)
+        self.self.props
+
+    def _ingest_response(self, response):
+        '''Takes a response object and ingests state, links, and
+        updates the self link of this navigator to correspond. This
+        will only work if the response is valid JSON'''
+        self.response = response
+        if self._can_parse(response.headers['Content-Type']):
+            hal_json = self._parse_content(response.text)
+        else:
+            raise exc.HALNavigatorError(
+                message="Unexpected content type! Wanted {}, got {}"
+                .format(self.DEFAULT_CONTENT_TYPE,
+                        self.response.headers['content-type']),
+                nav=self,
+                status=self.response.status_code,
+                response=self.response,
+            )
+        self._links = self._make_links_from(hal_json)
+        # Set properties from new document's self link
+        self._update_self_link(
+            hal_json.get('_links', {}).get('self', {}),
+            response.headers,
+        )
         # Set curies if available
         self.curies = {curie['name']: curie['href']
                        for curie in
@@ -394,6 +428,8 @@ class HALNavigator(HALNavigatorBase):
                 link=Link(uri=response.headers['Location']),
                 core=self._core
             )
+            # We don't ingest the response because we haven't fetched
+            # the newly created resource yet
         elif method in (POST, PUT, PATCH, DELETE):
             nav = OrphanHALNavigator(
                 link=None,
@@ -401,27 +437,13 @@ class HALNavigator(HALNavigatorBase):
                 response=response,
                 parent=self,
             )
+            nav._ingest_response(response)
         elif method == GET:
             nav = self
-            nav.response = response
+            nav._ingest_response(response)
         else:
             assert False, "This shouldn't happen"
 
-        # Process state / links etc here
-        if response.headers['content-type'] == nav.DEFAULT_CONTENT_TYPE:
-            try:
-                hal_body = json.loads(response.text)
-            except ValueError:
-                raise exc.UnexpectedlyNotJSON(
-                    "The resource at {.uri} wasn't valid JSON", response)
-            nav._ingest_response(hal_body, response.headers)
-        else:
-            raise exc.HALNavigatorError(
-                message="Unexpectedly not HAL! I don't know how to handle this",
-                nav=nav,
-                status=response.status_code,
-                response=response,
-            )
         return nav
 
     def _request(self, method, body=None, raise_exc=True, headers=None):
@@ -433,6 +455,7 @@ class HALNavigator(HALNavigatorBase):
             data=body if not isinstance(body, dict) else None,
             json=body if isinstance(body, dict) else None,
             headers=headers,
+            allow_redirects=False,
         )
         nav = self._create_navigator(response, raise_exc=raise_exc)
         if raise_exc and not response:
@@ -511,3 +534,24 @@ class OrphanHALNavigator(HALNavigator):
 
     def __call__(self, *args, **kwargs):
         return self.state.copy()
+
+    def __repr__(self):
+        relative_uri = self.parent.self.relative_uri(self._core.root)
+        objectified_uri = utils.objectify_uri(relative_uri)
+        return "{cls}({name}{path})".format(
+            cls=type(self).__name__, name=self.apiname, path=objectified_uri)
+
+    def _can_parse(self, content_type):
+        '''If something doesn't parse, we just return an empty doc'''
+        return True
+
+    def _parse_content(self, text):
+        '''Try to parse as HAL, but on failure use an empty dict'''
+        try:
+            super(OrphanHALNavigator, self)._parse_content(text)
+        except exc.UnexpectedlyNotJSON:
+            return {}
+
+    def _update_self_link(self, link, headers):
+        '''OrphanHALNavigator has no link object'''
+        pass
