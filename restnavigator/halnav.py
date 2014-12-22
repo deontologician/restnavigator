@@ -449,6 +449,9 @@ class HALNavigator(HALNavigatorBase):
     def _request(self, method, body=None, raise_exc=True, headers=None):
         '''Fetches HTTP response using the passed http method. Raises
         HALNavigatorError if response is in the 400-500 range.'''
+        headers = headers or {}
+        if body and 'Content-Type' not in headers:
+            headers.update({'Content-Type': 'application/json'})
         response = self._core.session.request(
             method,
             self.uri,
@@ -512,7 +515,7 @@ class HALNavigator(HALNavigatorBase):
         return self._request(PATCH, body, raise_exc, headers)
 
 
-class OrphanHALNavigator(HALNavigator):
+class OrphanHALNavigator(HALNavigatorBase):
 
     '''A Special navigator that is the result of a non-GET
 
@@ -548,10 +551,14 @@ class OrphanHALNavigator(HALNavigator):
     def _parse_content(self, text):
         '''Try to parse as HAL, but on failure use an empty dict'''
         try:
-            super(OrphanHALNavigator, self)._parse_content(text)
+            return super(OrphanHALNavigator, self)._parse_content(text)
         except exc.UnexpectedlyNotJSON:
             return {}
 
     def _update_self_link(self, link, headers):
         '''OrphanHALNavigator has no link object'''
         pass
+
+    def _navigator_or_thunk(self, link):
+        '''We need to resolve relative links against the parent uri'''
+        return HALNavigatorBase._navigator_or_thunk(self.parent, link)
