@@ -221,84 +221,9 @@ def test_HALNavigator__iteration():
                 assert nav is Nitems
             else:
                 assert isinstance(nav, HN.HALNavigator)
-                assert nav.uri == index_uri + str(i)
+                assert nav.uri == index_uri + st9r(i)
             captured.append(nav)
         assert len(captured) == 10
-
-
-@pytest.mark.xfail(reason="navigators no longer expand")
-def test_HALNavigator__expand():
-    r'''Tests various aspects of template expansion'''
-    with httprettify():
-        index_uri = 'http://www.example.com/'
-        template_uri = 'http://www.example.com/{?x,y,z}'
-        index_links = {'template': {
-            'href': template_uri,
-            'templated': True,
-        }}
-        register_hal(index_uri, index_links)
-
-        N = HN.Navigator.hal(index_uri)
-
-        unexpanded = N['template']
-        unexpanded2 = N['template']
-        assert unexpanded is not unexpanded2
-        assert unexpanded.uri is None
-        assert unexpanded.template_uri == index_links['template']['href']
-        assert unexpanded.templated
-
-        expanded = unexpanded.expand(x=1, y=2, z=3)
-        expanded2 = unexpanded.expand(x=1, y=2, z=3)
-        assert expanded is expanded2
-        assert expanded is not unexpanded
-        assert expanded.template_uri is None
-        assert expanded.template_args is None
-        assert expanded.uri == uritemplate.expand(
-            template_uri, variables=dict(x=1, y=2, z=3))
-
-        half_expanded = unexpanded.expand(
-            _keep_templated=True, x=1, y=2)
-        half_expanded2 = unexpanded.expand(
-            _keep_templated=True, x=1, y=2)
-        # half expanded templates don't go into the id map
-        assert half_expanded is not half_expanded2
-        # but they should be equivalent
-        assert half_expanded == half_expanded2
-        assert half_expanded.uri == uritemplate.expand(
-            template_uri, variables=dict(x=1, y=2))
-        assert half_expanded.template_uri == template_uri
-        assert half_expanded.template_args == dict(x=1, y=2)
-
-
-@pytest.mark.xfail(reason="Navigators no longer templated")
-def test_HALNavigator__dont_get_template_links():
-    with httprettify():
-        index_uri = 'http://www.example.com/'
-        index_regex = re.compile(index_uri + '.*')
-        template_href = 'http://www.example.com/{?max,page}'
-        index_links = {'first': {
-            'href': template_href,
-            'templated': True
-        }}
-        register_hal(index_regex, index_links)
-
-        N = HN.Navigator.hal(index_uri)
-        with pytest.raises(TypeError):
-            assert N['page': 0]  # N is not templated
-        with pytest.raises(HN.exc.AmbiguousNavigationError):
-            assert N['first']()  # N['first'] is templated
-        with pytest.raises(HN.exc.AmbiguousNavigationError):
-            assert N['first'].create()  # N['first'] is templated
-        with pytest.raises(HN.exc.AmbiguousNavigationError):
-            assert N['first'].delete()  # N['first'] is templated
-
-        assert N['first'].templated
-        assert N['first']['page': 0].uri == 'http://www.example.com/?page=0'
-        assert not N['first']['page':0].templated
-        with pytest.raises(ValueError):
-            assert N['first'][:'page':0]
-        with pytest.raises(ValueError):
-            assert N['first'][::'page']
 
 
 @pytest.mark.xfail(reason="getitem syntax changed significantly")

@@ -130,11 +130,18 @@ class TemplatedThunk(object):
             properties=props,
         )
 
+    @property
+    def template_uri(self):
+        return self.link.uri
+
     def __call__(self, **args):
         '''Expands the current TemplatedThunk into a new
         navigator. Keyword args are supplied to the uri template.
         '''
-        return self._core.create_navigator(self.expand_link(**args))
+        return HALNavigator(
+            core=self._core,
+            link=self.expand_link(**args),
+        )
 
 
 class Navigator(object):
