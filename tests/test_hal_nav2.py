@@ -159,10 +159,19 @@ class TestTemplateThunk:
         return href
 
     @pytest.fixture
-    def posts(self, rel, name, index_page, page, post_template_uri):
+    def tpl_rel(self, name, curify):
+        return curify(name + '_tpl')
+
+    @pytest.fixture
+    def posts(self, rel, name, index_uri, index_page, page, tpl_rel):
         '''Creates and registers some posts'''
         resource0 = page(name, 0)
         index_page['_links'][rel] = resource0['_links']['self']
+        index_page['_links'][tpl_rel] = {
+            'href': index_uri + name + '/{id}',
+            'title': 'Template for ' + name,
+            'templated': True,
+        }
         register_hal_page(resource0)
         last = resource0
         for i in xrange(1, 5):
@@ -197,6 +206,19 @@ class TestTemplateThunk:
 
     def test_variables(self, template_thunk, vars):
         assert template_thunk.variables == vars
+
+    @pytest.mark.parametrize('i', range(0, 5))
+    def test_valid_expansion(self, posts, name, N, tpl_rel, i):
+        thunk = N[tpl_rel]
+        nav = thunk(id=i)
+        nav.fetch()
+        assert nav.status == (200, 'OK')
+        assert nav.uri == posts[i]['_links']['self']['href']
+
+
+class TestHALNavGetItem:
+    '''Tests the __getitem__ method of HALNavigator '''
+    
 
 
 
