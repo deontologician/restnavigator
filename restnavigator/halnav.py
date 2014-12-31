@@ -293,7 +293,24 @@ class HALNavigatorBase(object):
 
     def __getitem__(self, getitem_args):
         r'''Subselector for a HALNavigator'''
+        if not isinstance(getitem_args, tuple):
+            args = [getitem_args]
+        else:
+            args = list(getitem_args)
 
+        val = self
+        for arg in args:
+            if isinstance(arg, basestring):
+                val()  # fetch the resource if necessary
+                val = val[arg]
+            elif isinstance(arg, slice):
+                val = val.get_by(arg.start, arg.stop)
+            elif isinstance(arg, int):
+                val = val[arg]
+            else:
+                raise TypeError("Can't accept {!s} in brackets", type(arg))
+        return val
+                
         def dereference(n, rels):
             '''Helper to recursively dereference'''
             n() # fetch the resource if necessary

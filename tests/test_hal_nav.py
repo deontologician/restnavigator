@@ -221,72 +221,9 @@ def test_HALNavigator__iteration():
                 assert nav is Nitems
             else:
                 assert isinstance(nav, HN.HALNavigator)
-                assert nav.uri == index_uri + st9r(i)
+                assert nav.uri == index_uri + str(i)
             captured.append(nav)
         assert len(captured) == 10
-
-
-@pytest.mark.xfail(reason="getitem syntax changed significantly")
-def test_HALNavigator__getitem_gauntlet():
-    with httprettify():
-        index_uri = 'http://www.example.com/'
-        index_regex = re.compile(index_uri + '.*')
-        template_href = 'http://www.example.com/{?max,page}'
-        index_links = {'first': {
-            'href': template_href,
-            'templated': True
-        }}
-        register_hal(index_regex, index_links)
-
-        N = HN.Navigator.hal(index_uri)
-        expanded_nav = N['first', 'page':0, 'max':1]
-        assert expanded_nav.uri == uritemplate.expand(template_href,
-                                                      {'max': 1, 'page': '0'})
-        assert N['first'].expand(page=0, max=1) == expanded_nav
-        assert N['first']['page': 0].uri == uritemplate \
-            .expand(template_href, {'page': '0'})
-        assert N['first', :].uri == uritemplate.expand(
-            template_href, variables={})
-
-        first_page_expanded = uritemplate.expand(template_href, {'page': '0'})
-        first_null_expanded = uritemplate.expand(template_href, {})
-        first_both_expanded = uritemplate.expand(
-            template_href, {'page': '0', 'max': 4})
-        # (somewhat) exhaustive combinations
-        N_first = N['first']
-        with pytest.raises(TypeError):
-            assert N['page': 0]
-        assert N_first['page':0].uri == first_page_expanded
-        assert N[...].uri == N.uri
-        with pytest.raises(TypeError):
-            assert N['page': 0, ...]
-        assert N_first['page':0, ...].uri == first_page_expanded
-        assert N_first['page':0, ...].templated
-        with pytest.raises(TypeError):
-            assert N[:]
-        assert N_first[:].uri == first_null_expanded
-        with pytest.raises(TypeError):
-            assert N['page':0, :]
-        assert N_first['page':0, :].uri == first_page_expanded
-        assert not N_first['page':0, :].templated
-        with pytest.raises(SyntaxError):
-            assert N[:, ...]
-        with pytest.raises(SyntaxError):
-            assert N['page':0, :, ...]
-        assert N['first'].template_uri == template_href
-        assert N['first', 'page': 0].uri == first_page_expanded
-        assert N['first', ...].template_uri == template_href
-        assert N['first', 'page':0, ...].template_uri == template_href
-        assert N['first', 'page':0, ...].templated
-        assert N['first', 'page':0, ...]['max': 4].uri == first_both_expanded
-        assert N['first', :].uri == first_null_expanded
-        assert not N['first', :].templated
-        assert N['first', 'page':0, :].uri == first_page_expanded
-        assert not N['first', 'page':0, :].templated
-        with pytest.raises(SyntaxError):
-            assert N['first', :, ...]
-        with pytest.raises(SyntaxError):
-            assert N['first', 'page': 0, :, ...]
 
 
 def test_HALNavigator__bad_getitem_objs():

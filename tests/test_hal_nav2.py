@@ -115,7 +115,7 @@ def index_page(curie_links, index_uri, http):
 
 
 @pytest.fixture
-def N(index_uri):
+def N(index_uri, index_page):
     '''A basic HALNavigator with the index_uri as root'''
     return RN.Navigator.hal(index_uri)
 
@@ -218,8 +218,129 @@ class TestTemplateThunk:
 
 class TestHALNavGetItem:
     '''Tests the __getitem__ method of HALNavigator '''
-    
 
+    @pytest.fixture
+    def names(self):
+        namelist = [conftest.random_word().lower() for _ in xrange(3)]
+        def _names(i):
+            return namelist[i]
+        return _names
+
+    @pytest.fixture
+    def rels(self, names, curify):
+        def _rels(i):
+            return curify(names(i))
+        return _rels
+
+    @pytest.fixture
+    def resources(self, names, rels, index_page, index_uri, page):
+        last = index_page
+        for i in xrange(3):
+            new = page(names(i), i)
+            last['_links'][rels(i)] = {
+                'href': new['_links']['self']['href'],
+                'title': "Page for " + names(i)
+            }
+            last = new
+
+    @pytest.fixture
+    def template_uri(self, index_uri):
+        return index_uri + 'tpl/{id}'
+
+    @pytest.fixture
+    def tpl_rel(self, curify):
+        return curify('tpl')
+            
+    @pytest.fixture
+    def tpl_resources(self, page, tpl_rel, template_uri, index_page):
+        index_page['_links'][tpl_rel] = {
+            'href': template_uri,
+            'templated': True,
+            'title': 'Template link',
+        }
+        for i in xrange(3):
+            resource = page('tpl', i)
+            register_hal_page(resource)
+        return template_uri
+
+    def test_fetch_behavior(self, N, resources, rels):
+        Na = N[rels(0)]
+        Nb = N[rels(0), rels(1)]
+        assert Na.fetched
+        assert not Nb.fetched
+
+    def test_sequence_equivalence(self, N, resources, rels):
+        Na = N[rels(0), rels(1), rels(2)]
+        Nb = N[rels(0)][rels(1)][rels(2)]
+        assert Na is Nb
+
+    @pytest.fixture
+    def link_resources(self, rels, names, index_page, page):
+        first = page(names(0), 1)
+        index_page['_links'][names(0)] = first['_links']['self']
+        register_hal_page(first)
+        second1 = page(names(1), 1)
+        second2 = page(names(1), 2)
+        first['_links'][rels(1)] = [
+            {
+                'href': second1['_links']['self']['href'],
+                'name': 'name_x',
+            },{
+                'href': second2['_links']['self']['href'],
+                'name': 'name_y',
+            }
+        ]
+        register_hal_page(second1)
+        register_hal_page(second2)
+        third = page(names(2), 1)
+        second1['_links'][rels(2)] = third['_links']['self']
+        second2['_links'][rels(2)] = third['_links']['self']
+        register_hal_page(third)
+
+    def test_linklist_in_sequence(self, N, link_resources, rels):
+        Nchained = N[rels(0), rels(1), 'name':'name_x', rels(2)]
+        Nfirst = N[rels(0)]
+        Nsecondlist = Nfirst[rels(1)]
+        Nsecond = Nsecondlist.get_by('name', 'name_x')
+        Nthird = Nsecond[rels(2)]
+
+        assert Nchained is Nthird
+        
+
+        
+
+    def test_template_sequence(self, N, tpl_resources, tpl_rel):
+        Na = N[tpl_rel](id=0)
+        Nb = N[tpl_rel](id=1)
+        Nc = N[tpl_rel](id=2)
+        Na(), Nb(), Nc()
+        assert Na.status == (200, 'OK')
+        assert Nb.status == (200, 'OK')
+        assert Nc.status == (200, 'OK')
+
+class TestLink:
+    '''Tests for the Link class'''
+    @pytest.fixture
+    def rel(self, curify):
+        return curify('some_rel')
+
+    @pytest.fixture
+    def resource(self, index_page, page, rel):
+        pg1 = page('another', 1)
+        pg2 = page('another', 2)
+        index_page['_links'][rel] = [
+            pg1['_links']['self'],
+            pg2['_links']['self'],
+        ]
+        register_hal_page(pg1)
+        register_hal_page(pg2)
+        return pg1, pg2
+
+    @pytest.mark.xfail()
+    def test_relative_uri(self, index_page, N, rel, resource):
+        relative_uri = '/another/1'
+        links = N[rel]
+        assert links[0].relative_uri == relative_uri
 
 
 @pytest.mark.xfail(reason="Embedded not implemented yet")
