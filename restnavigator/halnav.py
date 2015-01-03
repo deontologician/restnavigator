@@ -114,19 +114,19 @@ class TemplatedThunk(object):
         link'''
         return uritemplate.variables(self.link.uri)
 
-    def expand_uri(self, **args):
+    def expand_uri(self, **kwargs):
         '''Returns the template uri expanded with the current arguments'''
-        args = dict([(k, v if v != 0 else '0') for k, v in args.items()])
-        return uritemplate.expand(self.link.uri, args)
+        kwargs = dict([(k, v if v != 0 else '0') for k, v in kwargs.items()])
+        return uritemplate.expand(self.link.uri, kwargs)
 
-    def expand_link(self, **args):
+    def expand_link(self, **kwargs):
         '''Expands with the given arguments and returns a new
         untemplated Link object
         '''
         props = self.link.props.copy()
         del props['templated']
         return Link(
-            uri=self.expand_uri(**args),
+            uri=self.expand_uri(**kwargs),
             properties=props,
         )
 
@@ -134,13 +134,13 @@ class TemplatedThunk(object):
     def template_uri(self):
         return self.link.uri
 
-    def __call__(self, **args):
+    def __call__(self, **kwargs):
         '''Expands the current TemplatedThunk into a new
-        navigator. Keyword args are supplied to the uri template.
+        navigator. Keyword traversal are supplied to the uri template.
         '''
         return HALNavigator(
             core=self._core,
-            link=self.expand_link(**args),
+            link=self.expand_link(**kwargs),
         )
 
 
@@ -288,51 +288,34 @@ class HALNavigatorBase(object):
     def next(self):
         try:
             return self['next']
-        except KeyError:
-            raise StopIteration()
+        except exc.OffTheRailsException as otre:
+            if isinstance(otre.exception, KeyError):
+                raise StopIteration()
+            else:
+                raise
 
     def __getitem__(self, getitem_args):
-        r'''Subselector for a HALNavigator'''
-        if not isinstance(getitem_args, tuple):
-            args = [getitem_args]
-        else:
-            args = list(getitem_args)
-
+        r'''Rel selector and traversor for navigators'''
+        traversal = utils.normalize_getitem_args(getitem_args)
+        intermediates = [self]
         val = self
-        for arg in args:
-            if isinstance(arg, basestring):
-                val()  # fetch the resource if necessary
-                val = val[arg]
-            elif isinstance(arg, slice):
-                val = val.get_by(arg.start, arg.stop)
-            elif isinstance(arg, int):
-                val = val[arg]
-            else:
-                raise TypeError("Can't accept {!s} in brackets", type(arg))
-        return val
-                
-        def dereference(n, rels):
-            '''Helper to recursively dereference'''
-            n() # fetch the resource if necessary
-            if len(rels) == 1:
-                navigators = n._links[rels[0]]
-                if isinstance(navigators, list):
-                    if len(navigators) == 1:
-                        return navigators[0]
-                    else:
-                        # copy the list
-                        return list(navigators)
+        for i, arg in enumerate(traversal):
+            try:
+                if isinstance(arg, basestring):
+                    val()  # fetch the resource if necessary
+                    val = val._links[arg]
+                elif isinstance(arg, tuple):
+                    val = val.get_by(*arg, raise_exc=True)
+                elif isinstance(arg, int) and isinstance(val, list):
+                    val = val[arg]
                 else:
-                    # navigators is a single item
-                    return navigators
-            else:
-                # we still have more rels to traverse
-                return dereference(n[rels[0]], rels[1:])
-
-        rels, _, _, _ = utils.normalize_getitem_args(getitem_args)
-        # If more than one rel, recursively call with 1 less rel
-        n = dereference(self, rels)
-        return n
+                    raise TypeError("{!r} doesn't accept a traversor of {!r}"
+                                    .format(val, arg))
+            except Exception as e:
+                raise exc.OffTheRailsException(
+                    traversal, i, intermediates, e)
+            intermediates.append(val)
+        return val
 
     def docsfor(self, rel):
         '''Obtains the documentation for a link relation. Opens in a webbrowser

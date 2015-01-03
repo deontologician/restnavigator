@@ -24,6 +24,7 @@ class HALNavigatorError(Exception):
         self.status = status
         super(HALNavigatorError, self).__init__(message)
 
+
 class NoResponseError(ValueError):
     '''Raised when accessing a field of a navigator that has not
     fetched a response yet'''
@@ -38,5 +39,31 @@ class UnexpectedlyNotJSON(TypeError):
         self.response = response
 
     def __repr__(self):  # pragma: nocover
-        "The resource at {} wasn't valid JSON:\n\n\n{}".format(
+        return "The resource at {} wasn't valid JSON:\n\n\n{}".format(
             self.uri, self.response)
+
+
+class OffTheRailsException(TypeError):
+    '''Raised when a traversal specified to __getitem__ cannot be
+    satisfied
+    '''
+    def __init__(self, traversal, index, intermediates, e):
+        self.traversal = traversal
+        self.index = index
+        self.intermediates = intermediates
+        self.exception = e
+
+    def _format_exc(self):
+        if isinstance(self.exception, KeyError):
+            return "{!r} doesn't have the rel {!r}".format(
+                self.intermediates[-1], self.exception[0])
+        else:
+            return self.exception[0]
+
+    def __repr__(self):  # pragma: nocover
+        ("Attempted to traverse from {!r} using the traversal {!r}, "
+         "but failed on part {} because {}.").format(
+             self.intermediates[0],
+             self.traversal,
+             self.index + 1,
+             self.msg)
