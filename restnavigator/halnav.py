@@ -44,13 +44,14 @@ class APICore(object):
                  apiname=None,
                  default_curie=None,
                  session=None,
+                 id_map=None,
                  ):
         self.root = root
         self.nav_class = nav_class
         self.apiname = utils.namify(root) if apiname is None else apiname
         self.default_curie = default_curie
         self.session = session or requests.Session()
-        self.id_map = WeakValueDictionary()
+        self.id_map = id_map if id_map is not None else WeakValueDictionary()
 
     def cache(self, link, nav):
         '''Stores a navigator in the identity map for the current
