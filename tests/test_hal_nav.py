@@ -394,23 +394,6 @@ def test_HALNavigator__multilink_gauntlet():
         assert N_2b.uri == second_b_uri
 
 
-@pytest.mark.xfail(reason='relative_uri now on Link')
-def test_HALNavigator__relative_link():
-    with httprettify():
-        index_uri = 'http://www.example.com/api/'
-        relative_uri = 'another/link'
-        relative_templated = 'another/{link}'
-        index_links = {
-            'alternate': [{'href': index_uri + relative_uri},
-                          {'href': index_uri + relative_templated,
-                           'templated': True}],
-        }
-        register_hal(index_uri, index_links)
-        N = HN.Navigator.hal(index_uri)
-        assert N['alternate'][0].relative_uri == '/' + relative_uri
-        assert N['alternate'][1].relative_uri == '/' + relative_templated
-
-
 def test_HALNavigator__fetch():
     with httprettify() as HTTPretty:
         index_uri = r'http://www.example.com'

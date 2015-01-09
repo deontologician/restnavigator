@@ -343,27 +343,6 @@ class TestHALNavGetItem:
         assert Nb.status == (200, 'OK')
         assert Nc.status == (200, 'OK')
 
-class TestRelativeUri:
-    '''Tests for the Link relative_uri'''
-    @pytest.fixture
-    def rel(self, curify):
-        return curify('some_rel')
-
-    @pytest.fixture
-    def resource(self, index_page, page, rel):
-        pg1 = page('another', 1)
-        pg2 = page('another', 2)
-        index_page['_links'][rel] = [link_to(pg1), link_to(pg2)]
-        register_hal_page(pg1)
-        register_hal_page(pg2)
-        return pg1, pg2
-
-    @pytest.mark.xfail()
-    def test_relative_uri(self, index_page, N, rel, resource):
-        relative_uri = '/another/1'
-        links = N[rel]
-        assert links[0].relative_uri == relative_uri
-
 
 @pytest.mark.xfail(reason="Embedded not implemented yet")
 class TestEmbedded:

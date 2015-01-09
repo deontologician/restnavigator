@@ -235,7 +235,7 @@ class HALNavigatorBase(object):
     def fetched(self):
         return self.response is not None
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: nocover
         relative_uri = self.self.relative_uri(self._core.root)
         objectified_uri = utils.objectify_uri(relative_uri)
         return "{cls}({name}{path})".format(
@@ -317,7 +317,7 @@ class HALNavigatorBase(object):
             intermediates.append(val)
         return val
 
-    def docsfor(self, rel):
+    def docsfor(self, rel):  # pragma: nocover
         '''Obtains the documentation for a link relation. Opens in a webbrowser
         window'''
         prefix, _rel = rel.split(':')
@@ -448,7 +448,7 @@ class HALNavigator(HALNavigatorBase):
         elif method == GET:
             nav = self
             nav._ingest_response(response)
-        else:
+        else: # pragma: nocover
             assert False, "This shouldn't happen"
 
         return nav
@@ -545,7 +545,7 @@ class OrphanHALNavigator(HALNavigatorBase):
     def __call__(self, *args, **kwargs):
         return self.state.copy()
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: nocover
         relative_uri = self.parent.self.relative_uri(self._core.root)
         objectified_uri = utils.objectify_uri(relative_uri)
         return "{cls}({name}{path})".format(
