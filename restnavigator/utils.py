@@ -29,46 +29,23 @@ def fix_scheme(url):
         raise exc.ZachMorrisException('Too many schemes!')
 
 
-def slice_process(slc):
-    '''Returns dictionaries for different slice syntaxes.'''
-    if slc.step is None:
-        if slc.start is not None and slc.stop is not None:
-            return {slc.start: slc.stop}
-        if slc.start is not None and slc.stop is None:
-            return {slc.start: ''}
-        if slc.start is None and slc.stop is None:
-            return {None: None}  # a sentinel indicating
-            # 'No further expanding please'
-            # maybe more slice types later if there is a good reason
-    raise ValueError('Unsupported slice syntax')
-
-
 def normalize_getitem_args(args):
-    '''Turns the arguments to __getitem__ magic methods into a uniform list of
-    dictionaries and strings (and Ellipsis)
+    '''Turns the arguments to __getitem__ magic methods into a uniform
+    list of tuples and strings
     '''
     if not isinstance(args, tuple):
-        args = args,
-    qargs = {}
-    rels = []
-    ellipsis = False
-    slug = False
+        args = (args,)
+    return_val = []
     for arg in args:
-        if isinstance(arg, basestring):
-            rels.append(arg)
+        if isinstance(arg, (basestring, int)):
+            return_val.append(arg)
         elif isinstance(arg, slice):
-            slc = slice_process(arg)
-            if slc == {None: None}:
-                slug = True
-            else:
-                qargs.update(slc)
-        elif isinstance(arg, type(Ellipsis)):
-            ellipsis = True
+            return_val.append((arg.start, arg.stop))
         else:
             raise TypeError(
                 'Brackets cannot contain objects of type {.__name__}'
                 .format(type(arg)))
-    return rels, qargs, slug, ellipsis
+    return return_val
 
 
 def namify(root_uri):
@@ -145,6 +122,29 @@ def namify(root_uri):
     )
 
 
+def objectify_uri(relative_uri):
+    '''Converts uris from path syntax to a json-like object syntax.
+    In addition, url escaped characters are unescaped, but non-ascii
+    characters a romanized using the unidecode library.
+
+    Examples:
+       "/blog/3/comments" becomes "blog[3].comments"
+       "car/engine/piston" becomes "car.engine.piston"
+    '''
+    def path_clean(chunk):
+        if not chunk:
+            return chunk
+        if re.match(r'\d+$', chunk):
+            return '[{}]'.format(chunk)
+        else:
+            return '.' + chunk
+
+    byte_arr = relative_uri.encode('utf-8')
+    unquoted = urllib.unquote(byte_arr).decode('utf-8')
+    nice_uri = unidecode.unidecode(unquoted)
+    return ''.join(path_clean(c) for c in nice_uri.split('/'))
+
+
 class LinkList(list):
     '''A list subclass that offers different ways of grabbing the values based
     on various metadata stored for each entry in the dictionary.
@@ -170,7 +170,7 @@ class LinkList(list):
             self._meta.setdefault(prop, {}).setdefault(val, []).append(obj)
         self.append(obj)
 
-    def get_by(self, prop, val):
+    def get_by(self, prop, val, raise_exc=False):
         '''Retrieve an item from the dictionary with the given metadata
         properties. If there is no such item, None will be returned, if there
         are multiple such items, the first will be returned.'''
@@ -178,7 +178,10 @@ class LinkList(list):
             val = self.serialize(val)
             return self._meta[prop][val][0]
         except (KeyError, IndexError):
-            return None
+            if raise_exc:
+                raise
+            else:
+                return None
 
     def getall_by(self, prop, val):
         '''Retrieves all items from the dictionary with the given metadata'''
