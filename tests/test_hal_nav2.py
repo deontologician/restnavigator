@@ -131,7 +131,7 @@ class TestTemplateThunk:
         '''The link relation for the templated link'''
         return curify(name)
 
-    @pytest.fixture(params=[{'x'}, {'x', 'y'}, {'x', 'y', 'z'}])
+    @pytest.fixture(params=[set(['x']), set(['x', 'y']), set(['x', 'y', 'z'])])
     def vars(self, request):
         '''A set of random variables'''
         return request.param
@@ -177,7 +177,7 @@ class TestTemplateThunk:
         }
         register_hal_page(resource0)
         last = resource0
-        for i in xrange(1, 5):
+        for i in range(1, 5):
             resource = page(name, i)
             last['_links']['next'] = link_to(resource)
             last = resource
@@ -224,7 +224,7 @@ class TestHALNavGetItem:
 
     @pytest.fixture
     def names(self):
-        namelist = [conftest.random_word().lower() for _ in xrange(3)]
+        namelist = [conftest.random_word().lower() for _ in range(3)]
         def _names(i):
             return namelist[i]
         return _names
@@ -238,7 +238,7 @@ class TestHALNavGetItem:
     @pytest.fixture
     def resources(self, names, rels, index_page, index_uri, page):
         last = index_page
-        for i in xrange(3):
+        for i in range(3):
             new = page(names(i), i)
             last['_links'][rels(i)] = {
                 'href': uri_of(new),
@@ -321,7 +321,7 @@ class TestHALNavGetItem:
     @pytest.fixture
     def tpl_rel(self, curify):
         return curify('tpl')
-            
+
     @pytest.fixture
     def tpl_resources(self, page, tpl_rel, template_uri, index_page):
         index_page['_links'][tpl_rel] = {
@@ -329,11 +329,11 @@ class TestHALNavGetItem:
             'templated': True,
             'title': 'Template link',
         }
-        for i in xrange(3):
+        for i in range(3):
             resource = page('tpl', i)
             register_hal_page(resource)
         return template_uri
-        
+
     def test_template_sequence(self, N, tpl_resources, tpl_rel):
         Na = N[tpl_rel](id=0)
         Nb = N[tpl_rel](id=1)
@@ -352,7 +352,7 @@ class TestEmbedded:
     @pytest.fixture
     def blog_posts(self, http):
         '''Posts are both linked and embedded'''
-        _posts = [self.page('post', x) for x in xrange(3)]
+        _posts = [self.page('post', x) for x in range(3)]
         for post in _posts:
             register_hal_page(post)
         return _posts
@@ -360,7 +360,7 @@ class TestEmbedded:
     @pytest.fixture
     def comments(self, page):
         '''Comments are embedded only and have no self link'''
-        comments = [page('comments', x) for x in xrange(3)]
+        comments = [page('comments', x) for x in range(3)]
         for comment in comments:
             del comment['_links']['self']
         return comments

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import collections
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 
 import pytest
 
@@ -15,12 +19,12 @@ def blank(request):
     class Blank(object):
         def __init__(self, **kwargs):
             self._kwargs = {}
-            for k, v in kwargs.iteritems():
+            for k, v in kwargs.items():
                 setattr(self, k, v)
                 self._kwargs[k] = v
             self._kwargs = kwargs
         def __repr__(self):
-            r = ['{}={}'.format(k, v) for k, v in self._kwargs.iteritems()]
+            r = ['{}={}'.format(k, v) for k, v in self._kwargs.items()]
             return 'Blank({})'.format(' '.join(r))
     return Blank
 
@@ -97,7 +101,7 @@ def test_LinkList__getby_failure():
 @pytest.fixture
 def linklist(blank):
     linklist = RNU.LinkList()
-    objs = collections.OrderedDict([
+    objs = OrderedDict([
         ('A.a', blank(name='A.a', klass='A', id='a')),
         ('A.b', blank(name='A.b', klass='A', id='b')),
         ('A.c', blank(name='A.c')),
@@ -145,7 +149,7 @@ def test_LinkList__getall_by_id(linklist):
 
 def test_LinkList__init_iterator(linklist):
     ll_iterated, objs = linklist
-    ctor_arg = [(v, v._kwargs) for k, v in objs.iteritems()]
+    ctor_arg = [(v, v._kwargs) for k, v in objs.items()]
     ll_ctor = RNU.LinkList(ctor_arg)
     assert ll_iterated == ll_ctor
     # Non black-box test warning!

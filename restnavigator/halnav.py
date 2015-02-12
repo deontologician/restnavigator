@@ -6,13 +6,20 @@ from __future__ import unicode_literals
 __version__ = '1.0pre'
 
 from weakref import WeakValueDictionary
-import functools
-import httplib
+try:
+    from http import client as http_client
+except ImportError:
+    import httplib as http_client
 import json
-import urlparse
+
+try:
+    from urllib import parse as urlparse
+except ImportError:
+    import urlparse
 import webbrowser
 
 import requests
+import six
 import uritemplate
 
 from restnavigator import exc, utils
@@ -20,7 +27,7 @@ from restnavigator import exc, utils
 
 DEFAULT_HEADERS = {
     'Accept': 'application/hal+json,application/json',
-    'User-Agent': 'HALNavigator/{}'.format(__version__)
+    'User-Agent': 'HALNavigator/{0}'.format(__version__)
 }
 
 # Constants used with requests library
@@ -302,7 +309,7 @@ class HALNavigatorBase(object):
         val = self
         for i, arg in enumerate(traversal):
             try:
-                if isinstance(arg, basestring):
+                if isinstance(arg, six.string_types):
                     val()  # fetch the resource if necessary
                     val = val._links[arg]
                 elif isinstance(arg, tuple):
@@ -310,7 +317,7 @@ class HALNavigatorBase(object):
                 elif isinstance(arg, int) and isinstance(val, list):
                     val = val[arg]
                 else:
-                    raise TypeError("{!r} doesn't accept a traversor of {!r}"
+                    raise TypeError("{0!r} doesn't accept a traversor of {1!r}"
                                     .format(val, arg))
             except Exception as e:
                 raise exc.OffTheRailsException(
@@ -332,7 +339,7 @@ class HALNavigatorBase(object):
     def _make_links_from(self, body):
         '''Creates linked navigators from a HAL response body'''
         ld = utils.LinkDict(self._core.default_curie, {})
-        for rel, link in body.get('_links', {}).iteritems():
+        for rel, link in body.get('_links', {}).items():
             if rel not in ['self', 'curies']:
                 if isinstance(link, list):
                     ld[rel] = utils.LinkList(
@@ -390,7 +397,7 @@ class HALNavigatorBase(object):
             hal_json = self._parse_content(response.text)
         else:
             raise exc.HALNavigatorError(
-                message="Unexpected content type! Wanted {}, got {}"
+                message="Unexpected content type! Wanted {0}, got {1}"
                 .format(self.DEFAULT_CONTENT_TYPE,
                         self.response.headers['content-type']),
                 nav=self,
@@ -404,12 +411,14 @@ class HALNavigatorBase(object):
             response.headers,
         )
         # Set curies if available
-        self.curies = {curie['name']: curie['href']
-                       for curie in
-                       hal_json.get('_links', {}).get('curies', [])}
+        self.curies = dict(
+            (curie['name'], curie['href'])
+            for curie in
+            hal_json.get('_links', {}).get('curies', []))
         # Set state by removing HAL attributes
-        self.state = {k: v for k, v in hal_json.iteritems()
-                      if k not in ['_links']}
+        self.state = dict(
+            (k, v) for k, v in hal_json.items()
+            if k not in ['_links'])
 
 
 class HALNavigator(HALNavigatorBase):
@@ -427,10 +436,10 @@ class HALNavigator(HALNavigatorBase):
         # TODO: refactor once hooks in place
         if method in (POST, PUT, PATCH, DELETE) \
            and response.status_code in (
-                httplib.CREATED,
-                httplib.FOUND,
-                httplib.SEE_OTHER,
-                httplib.NO_CONTENT) \
+                http_client.CREATED,
+                http_client.FOUND,
+                http_client.SEE_OTHER,
+                http_client.NO_CONTENT) \
            and 'Location' in response.headers:
             nav = HALNavigator(
                 link=Link(uri=response.headers['Location']),

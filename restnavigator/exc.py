@@ -39,7 +39,7 @@ class UnexpectedlyNotJSON(TypeError):
         self.response = response
 
     def __repr__(self):  # pragma: nocover
-        return "The resource at {} wasn't valid JSON:\n\n\n{}".format(
+        return "The resource at {0} wasn't valid JSON:\n\n\n{1}".format(
             self.uri, self.response)
 
 
@@ -55,14 +55,14 @@ class OffTheRailsException(TypeError):
 
     def _format_exc(self):
         if isinstance(self.exception, KeyError):
-            return "{!r} doesn't have the rel {!r}".format(
+            return "{0!r} doesn't have the rel {0!r}".format(
                 self.intermediates[-1], self.exception[0])
         else:
             return self.exception[0]
 
     def __repr__(self):  # pragma: nocover
-        ("Attempted to traverse from {!r} using the traversal {!r}, "
-         "but failed on part {} because {}.").format(
+        ("Attempted to traverse from {0!r} using the traversal {1!r}, "
+         "but failed on part {2} because {3}.").format(
              self.intermediates[0],
              self.traversal,
              self.index + 1,
