@@ -5,3 +5,8 @@
 htmlcov
 .pyflymakerc*
 dist/
+/.env
+/.cache
+/.tox
+/.eggs
+/build

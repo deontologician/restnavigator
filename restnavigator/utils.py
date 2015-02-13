@@ -1,15 +1,35 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+try:
+    from future_builtins import map
+except ImportError:
+    pass
 
-import urlparse
+try:
+    from urllib import parse as urlparse
+except ImportError:
+    import urlparse
+import codecs
+try:
+    from urllib.parse import unquote
+    decode = lambda str, encoding: str
+except ImportError:
+    from urllib import unquote
+    decode = codecs.decode
 import re
 import collections
 import itertools
-import urllib
+import six
+if hasattr(str, 'maketrans'):
+    translate = lambda s, trans: s.translate(str.maketrans('', '', "abcdef:.[]"))
+else:
+    translate = lambda s, trans: s.translate(None, trans)
 
 import unidecode
 
 from restnavigator import exc, registry
+
+unicode_type = type(u'')
 
 
 def fix_scheme(url):
@@ -37,13 +57,13 @@ def normalize_getitem_args(args):
         args = (args,)
     return_val = []
     for arg in args:
-        if isinstance(arg, (basestring, int)):
+        if isinstance(arg, six.string_types + (int, )):
             return_val.append(arg)
         elif isinstance(arg, slice):
             return_val.append((arg.start, arg.stop))
         else:
             raise TypeError(
-                'Brackets cannot contain objects of type {.__name__}'
+                'Brackets cannot contain objects of type {0.__name__}'
                 .format(type(arg)))
     return return_val
 
@@ -53,7 +73,7 @@ def namify(root_uri):
     make sense in most circumstances. Used by Navigator's __repr__, but can be
     overridden if the Navigator is created with a 'name' parameter.'''
 
-    root_uri = unidecode.unidecode(urllib.unquote(root_uri).decode('utf-8'))
+    root_uri = unidecode.unidecode(decode(unquote(root_uri), 'utf-8'))
 
     generic_domains = set(['localhost', 'herokuapp', 'appspot'])
     urlp = urlparse.urlparse(fix_scheme(root_uri))
@@ -67,7 +87,7 @@ def namify(root_uri):
     else:
         domain = netloc
 
-    if not domain.translate(None, "abcdef:.[]").isdigit():
+    if not translate(domain,"abcdef:.[]").isdigit():
         if '.' in domain:
             domain, tld = domain.rsplit('.', 1)
         else:
@@ -108,8 +128,7 @@ def namify(root_uri):
             return piece
 
     chain = itertools.chain
-    imap = itertools.imap
-    pieces = imap(capify, imap(piece_filter, chain(
+    pieces = map(capify, map(piece_filter, chain(
         formatargs['subdomain'],
         formatargs['domain'],
         formatargs['tld'],
@@ -135,12 +154,15 @@ def objectify_uri(relative_uri):
         if not chunk:
             return chunk
         if re.match(r'\d+$', chunk):
-            return '[{}]'.format(chunk)
+            return '[{0}]'.format(chunk)
         else:
             return '.' + chunk
 
-    byte_arr = relative_uri.encode('utf-8')
-    unquoted = urllib.unquote(byte_arr).decode('utf-8')
+    if six.PY2:
+        byte_arr = relative_uri.encode('utf-8')
+    else:
+        byte_arr = relative_uri
+    unquoted = decode(unquote(byte_arr), 'utf-8')
     nice_uri = unidecode.unidecode(unquoted)
     return ''.join(path_clean(c) for c in nice_uri.split('/'))
 
@@ -161,11 +183,11 @@ class LinkList(list):
             self.append_with(obj, **properties)
 
     # Values coming in on properties might be unhashable, so we serialize them
-    serialize = staticmethod(unicode)  # json comes in as unicode
+    serialize = staticmethod(unicode_type)  # json comes in as unicode
 
     def append_with(self, obj, **properties):
         '''Add an item to the dictionary with the given metadata properties'''
-        for prop, val in properties.iteritems():
+        for prop, val in properties.items():
             val = self.serialize(val)
             self._meta.setdefault(prop, {}).setdefault(val, []).append(obj)
         self.append(obj)
@@ -210,5 +232,5 @@ class LinkDict(dict):
             or (key in self and key in registry.iana_rels)
             or self.default_curie is None):
             return super(LinkDict, self).__getitem__(key)
-        implicit_key = '{}:{}'.format(self.default_curie, key)
+        implicit_key = '{0}:{1}'.format(self.default_curie, key)
         return super(LinkDict, self).__getitem__(implicit_key)

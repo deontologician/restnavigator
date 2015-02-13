@@ -3,12 +3,12 @@ python:
   - "2.7"
 # command to install dependencies
 install:
-  - python setup.py install
-  - pip install httpretty==0.6.0
-  - pip install coverage
-  - pip install coveralls
+  - pip install python-coveralls
+  - pip install -U virtualenv py
+  - pip install -e .[test]
 # command to run tests
 script:
-  - coverage run --source=restnavigator/ setup.py test
-after-success:
+  - tox
+  - py.test --cov=restnavigator --cov-report=term-missing tests
+after_success:
   - coveralls

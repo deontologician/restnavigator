@@ -14,13 +14,13 @@ def random_word(mean_length=5):
 
 def random_sentence(mean_length=10):
     return (' '.join(
-        random_word() for _ in xrange(jitter(mean_length))) + '.'
+        random_word() for _ in range(jitter(mean_length))) + '.'
     ).capitalize()
 
 def random_paragraph(mean_length=4):
     return ' '.join(
-        random_sentence() for _ in xrange(jitter(mean_length)))
+        random_sentence() for _ in range(jitter(mean_length)))
 
 def random_paragraphs(mean_length=5):
     return '\n\t'.join(
-        random_paragraph() for _ in xrange(jitter(mean_length)))
+        random_paragraph() for _ in range(jitter(mean_length)))

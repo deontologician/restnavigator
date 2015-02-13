@@ -70,14 +70,14 @@ def emit_iana_rels(rels_url):
     print()
     print('iana_rels = {')
     for key in keys:
-        print('    {!r}: ('.format(key))
+        print('    {0!r}: ('.format(key))
         desc_list = list(linewrap(iana_rels[key], width=68))
         for i, line in enumerate(desc_list):
             line_ = line.replace('"', '\\"')  # escape double quotes
             if i < len(desc_list) - 1:
-                print('        "{} "'.format(line_))
+                print('        "{0} "'.format(line_))
             else:
-                print('        "{}"'.format(line_))
+                print('        "{0}"'.format(line_))
         print('    ),')
     print('}')
 
@@ -88,7 +88,7 @@ def emit_iana_tlds(tlds_url):
 
     print('# Obtained from', tlds_url)
     print('# TLDs last updated: {year}-{month}-{day}\n'.format(**pieces))
-    
+
     def fixup(tld):
         if tld.startswith('XN--'):
             ret = tld.encode('ascii')[4:].decode('punycode')
