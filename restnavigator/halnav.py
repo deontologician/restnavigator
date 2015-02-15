@@ -493,7 +493,7 @@ class HALNavigator(HALNavigatorBase):
         self._request(GET, raise_exc=raise_exc)  # ingests response
         return self.state.copy()
 
-    def create(self, body, raise_exc=True, headers=None):
+    def create(self, body=None, raise_exc=True, headers=None):
         '''Performs an HTTP POST to the server, to create a
         subordinate resource. Returns a new HALNavigator representing
         that resource.
