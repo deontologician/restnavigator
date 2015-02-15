@@ -135,6 +135,7 @@ def test_HALNavigator__links():
         )
         N = HN.Navigator.hal('http://www.example.com')
         expected = {
+            'self': HN.Navigator.hal('http://www.example.com')['self'],
             'ht:users': HN.Navigator.hal('http://www.example.com')['ht:users']
         }
         assert N.links() == expected

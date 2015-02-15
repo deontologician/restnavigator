@@ -340,7 +340,7 @@ class HALNavigatorBase(object):
         '''Creates linked navigators from a HAL response body'''
         ld = utils.LinkDict(self._core.default_curie, {})
         for rel, link in body.get('_links', {}).items():
-            if rel not in ['self', 'curies']:
+            if rel != 'curies':
                 if isinstance(link, list):
                     ld[rel] = utils.LinkList(
                         (self._navigator_or_thunk(lnk), lnk) for lnk in link)
