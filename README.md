@@ -1,7 +1,7 @@
 # REST Navigator
 
 [![Build Status](https://travis-ci.org/deontologician/rest_navigator.png?branch=master)](https://travis-ci.org/deontologician/rest_navigator)
-[![Coverage Status](https://coveralls.io/repos/deontologician/rest_navigator/badge.png?branch=master)](https://coveralls.io/r/deontologician/rest_navigator?branch=master)
+[![Coverage Status](https://img.shields.io/coveralls/deontologician/rest_navigator/next.svg)](https://coveralls.io/r/deontologician/rest_navigator?branch=next)
 
 REST Navigator is a python library for interacting with hypermedia apis ([REST level 3][]).
 Right now, it only supports [HAL+JSON][] but it should be general enough to extend to other formats eventually.
