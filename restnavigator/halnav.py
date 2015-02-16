@@ -367,8 +367,22 @@ class HALNavigatorBase(object):
             return HALNavigator(link_obj, core=self._core)
 
     def _can_parse(self, content_type):
-        '''Whether this navigator can parse the given content-type'''
-        return content_type == self.DEFAULT_CONTENT_TYPE
+        '''Whether this navigator can parse the given content-type.
+        Checks that the content_type matches one of the types specified
+        in the 'Accept' header of the request, if supplied.
+        If not supplied, matches against the default'''
+        content_type, content_subtype, content_param = utils.parse_media_type(content_type)
+        for accepted in self.headers.get('Accept', self.DEFAULT_CONTENT_TYPE).split(','):
+            type, subtype, param = utils.parse_media_type(accepted)
+            # if either accepted_type or content_type do not
+            # contain a parameter section, then it will be
+            # optimistically ignored
+            matched = (type == content_type) \
+                      and (subtype == content_subtype) \
+                      and (param == content_param or not (param and content_param))
+            if matched:
+                return True
+        return False
 
     def _parse_content(self, text):
         '''Parses the content of a response body into the correct
@@ -398,7 +412,7 @@ class HALNavigatorBase(object):
         else:
             raise exc.HALNavigatorError(
                 message="Unexpected content type! Wanted {0}, got {1}"
-                .format(self.DEFAULT_CONTENT_TYPE,
+                .format(self.headers.get('Accept', self.DEFAULT_CONTENT_TYPE),
                         self.response.headers['content-type']),
                 nav=self,
                 status=self.response.status_code,

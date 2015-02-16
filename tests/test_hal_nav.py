@@ -612,6 +612,39 @@ def test_HALNavigator__custom_headers():
         assert HTTPretty.last_request.headers.get('X-Pizza')
 
 
+@pytest.mark.parametrize(('accept', 'content_type', 'can_parse'), [
+    ('application/json', 'application/json', True),
+    ('application/json', 'foo', False),
+    ('application/hal+json,application/json', 'application/json', True),
+    ('application/hal+json,application/json', 'application/hal+json', True),
+    # optimistically accept content_type with additional parameter
+    ('application/hal+json,application/json', 'application/hal+json; charset=utf-8', True),
+    ('application/hal+json,application/json; charset=utf-8', 'application/hal+json', True),
+    # optimistically accept content_type with missing parameter
+    ('application/hal+json,application/json;charset=utf-8', 'application/json', True),
+    ('application/hal+json,application/json;charset=utf-8', 'application/json; charset=ISO-8859-1', False),
+    ('application/hal+json,application/json', 'application/xml', False),
+    ('application/hal+json,application/json', 'application/hal+xml; charset=utf-8', False),
+    ('application/vnd.custom.format', 'application/vnd.custom.format', True),
+    ('application/vnd.custom.format+json', 'application/vnd.custom.format+json; charset=ISO-8859-1', True),
+    ('application/vnd.custom.format+json', 'application/vnd.custom.format+xml', False),
+    ('application/vnd.custom.format+json, application/hal+json, application/json', 'application/json', True),
+    # optimistically accept content_type with additional parameter
+    ('application/vnd.custom.format+json, application/hal+json, application/json', 'application/hal+json; charset=utf-8', True),
+    ('application/vnd.custom.format+json, application/hal+json; charset=utf-8, application/json; charset=utf-8', 'application/vnd.custom.format+json', True),
+    # optimistically accept content_type with missing parameter
+    ('application/vnd.custom.format+json, application/hal+json; charset=utf-8, application/json; charset=utf-8', 'application/json', True),
+    ('application/vnd.custom.format+json, application/hal+json; charset=utf-8, application/json; charset=utf-8', 'application/json; charset=ISO-8859-1', False),
+    ('application/vnd.custom.format+json, application/hal+json, application/json', 'text/hal+json', False),
+    ('application/vnd.custom.format+json, application/hal+json, application/json', 'application/vnd.custom.format+xml', False)
+])
+def test_HALNavigator__can_parse(accept, content_type, can_parse):
+    index_uri = 'http://www.example.com/'
+    custom_headers = {'Accept': accept}
+    N = HN.Navigator.hal(index_uri, headers=custom_headers)
+    assert (N._can_parse(content_type) == can_parse)
+
+
 @pytest.fixture
 def bigtest_1():
     bigtest = type(str('bigtest_1'), (object,), {})

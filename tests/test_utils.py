@@ -54,6 +54,16 @@ def test_normalize_getitem_args():
             == ['gax', ('foo', 'bar'), 0, 'baz', 1])
 
 
+def test_parse_media_type():
+    parse = RNU.parse_media_type
+    assert parse('foo') == ('foo', None, None)
+    assert parse('foo/bar') == ('foo', 'bar', None)
+    assert parse('foo/bar+baz') == ('foo', 'bar+baz', None)
+    assert parse('foo/bar+baz; param=foo') == ('foo', 'bar+baz', 'param=foo')
+    assert parse('foo/bar+baz; param=foo, param=bar') == ('foo', 'bar+baz', 'param=foo, param=bar')
+    assert parse('  foo/bar+baz ; param=foo  ') == ('foo', 'bar+baz', 'param=foo') 
+    
+
 @pytest.mark.parametrize(('root_uri', 'expected'), [
     ('http://www.example.com', 'Example'),
     ('www.example.com', 'Example'),
