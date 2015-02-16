@@ -127,8 +127,8 @@ def N(index_uri, index_page):
     return RN.Navigator.hal(index_uri)
 
 
-class TestTemplateThunk:
-    '''tests for halnav.TemplatedThunk'''
+class TestPartialNavigator:
+    '''tests for halnav.PartialNavigator'''
 
     @pytest.fixture
     def rel(self, curify, name):
@@ -189,35 +189,35 @@ class TestTemplateThunk:
         return page.registry[name][:]
 
     @pytest.fixture
-    def template_thunk(self, rel, index_page, N, post_template):
+    def template_partial(self, rel, index_page, N, post_template):
         return N[rel]
 
-    def test_template_uri(self, template_thunk, post_template):
-        assert template_thunk.template_uri == post_template
+    def test_template_uri(self, template_partial, post_template):
+        assert template_partial.template_uri == post_template
 
     def test_expand_uri(
-            self, vars, post_template, template_thunk, values):
-        uri = template_thunk.expand_uri(**values)
+            self, vars, post_template, template_partial, values):
+        uri = template_partial.expand_uri(**values)
         assert uri == uritemplate.expand(post_template, values)
 
     def test_expand_link(
-            self, vars, post_template, template_thunk, values):
-        link = template_thunk.expand_link(**values)
+            self, vars, post_template, template_partial, values):
+        link = template_partial.expand_link(**values)
         assert not link.props.get('templated', False)
         assert link.uri == uritemplate.expand(post_template, values)
 
-    def test_expand(self, vars, post_template, template_thunk, values):
-        post1 = template_thunk(**values)
+    def test_expand(self, vars, post_template, template_partial, values):
+        post1 = template_partial(**values)
         assert not post1.fetched
         assert post1.uri == uritemplate.expand(post_template, values)
 
-    def test_variables(self, template_thunk, vars):
-        assert template_thunk.variables == vars
+    def test_variables(self, template_partial, vars):
+        assert template_partial.variables == vars
 
     @pytest.mark.parametrize('i', range(0, 5))
     def test_valid_expansion(self, posts, name, N, tpl_rel, i):
-        thunk = N[tpl_rel]
-        nav = thunk(id=i)
+        partial = N[tpl_rel]
+        nav = partial(id=i)
         nav.fetch()
         assert nav.status == (200, 'OK')
         assert nav.uri == uri_of(posts[i])

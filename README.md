@@ -42,11 +42,12 @@ All other URLs are obtained from the api responses themselves (think of your api
 As an example, we'll connect to the haltalk api.
 
 ```python
->>> from restnavigator import HALNavigator
->>> N = HALNavigator('http://haltalk.herokuapp.com/', apiname="haltalk")
+>>> from restnavigator import Navigator
+>>> N = Navigator.hal('http://haltalk.herokuapp.com/', default_curie="ht")
 >>> N
-HALNavigator(haltalk)
+HALNavigator(Haltalk)
 ```
+
 
 ### Links
 
@@ -54,12 +55,11 @@ Usually, with the index (normally at the api root), you're most interested in th
 Let's look at those:
 
 ```python
->>> N.links
-{'ht:users': [HALNavigator(haltalk.users)],
- 'ht:signup': [HALNavigator(haltalk.signup)],
- 'ht:me': [HALNavigator(haltalk.users.{name})],
- 'ht:latest-posts': [HALNavigator(haltalk.posts.latest)]
-}
+>>> N.links()
+{u'ht:users': HALNavigator(Haltalk.users),
+ u'ht:signup': HALNavigator(Haltalk.signup),
+ u'ht:me': TemplatedThunk(Haltalk.users.{name}),
+ u'ht:latest-posts': HALNavigator(Haltalk.posts.latest)}
 ```
 
 (This may take a moment because asking for the links causes the HALNavigator to actually request the resource from the server).
@@ -117,16 +117,18 @@ If you need a more robust way to browse the api and the documentation, [HAL Brow
 ### POST requests
 
 The docs for `ht:signup` explain the format of the POST request to sign up.
-So let's actually sign up (Note: haltalk is a toy api for example purposes, don't ever send plaintext passwords over an unencrypted connection in a real app!):
+So let's actually sign up.
+Since we've set `"ht"` as our default curie, we can skip typing the curie for convenience.
+(Note: haltalk is a toy api for example purposes, don't ever send plaintext passwords over an unencrypted connection in a real app!):
 
 ```python
->>> fred23 = N['ht:signup'].create(
+>>> fred23 = N['signup'].create(
 ... {'username': 'fred23',
-...  'password': 'some_passwd',
+...  'password': 'hunter2',
 ...  'real_name': 'Fred 23'}
 ... )
 >>> fred23
-HALNavigator(haltalk.users.fred23)
+HALNavigator(Haltalk.users.fred23)
 ```
 
 ### Errors
@@ -139,47 +141,54 @@ You can squelch this exception and just have the post call return a `HALNavigato
 ```python
 >>> dup_signup = N['ht:signup'].create({
 ...    'username': 'fred23',
-...    'password': 'pwnme',
+...    'password': 'hunter2',
 ...    'real_name': 'Fred Wilson'
 ... }, raise_exc=False)
 >>> dup_signup
-ErrorNavigator(haltalk.signup)  # 400!
+OrphanHALNavigator(Haltalk.signup)  # 400!
 >>> dup_signup.status
 (400, 'Bad Request')
 >>> dup_signup.state
-{"errors": {"username": ["is already taken"]}}
+{u"errors": {u"username": [u"is already taken"]}}
 ```
 
 ### Templated links
 
 Now that we've signed up, lets take a look at our profile.
-The link for a user's profile is a templated link, which we can tell because its repr has `{}` in it.
-You can also tell by the `.parameters` attribute:
+The link for a user's profile is a templated link, which restnavigator represents as a `PartialNavigator`.
+Similar to python's [functools.partial][], a `PartialNavigator` is an object that needs a few more arguments to give you a full navigator back.
+Despite its name, it can't talk to the network by itself.
+Its job is to to generate new navigators for you.
+You can see what variables it has by looking at its `.variables` attribute (its `__repr__` hints at this as well):
+
+[functools.partial]: https://docs.python.org/2/library/functools.html#functools.partial
 
 ```python
->>> N.links.keys()
+>>> N.links().keys()
 ['ht:latest-posts', 'ht:me', 'ht:users', 'ht:signup']
 >>> N['ht:me']
-HALNavigator(haltalk.users.{name})
->>> N['ht:me'].parameters
+PartialNavigator(Haltalk.users.{name})
+>>> N['ht:me'].variables
 set(['name'])
 ```
 
-The documentation for the `ht:me` rel type should tell us how the name parameteris supposed to work, but in this case it's fairly obvious (plug in the username).
-There are two ways you can input template parameters.
-Both are equivalent, but people may prefer one over the other for aesthetic reasons:
+The documentation for the `ht:me` rel type should tell us how the name parameter is supposed to work, but in this case it's fairly obvious (plug in the username).
+Two provide the template parameters, just call it with keyword args:
 
 ```python
->>> N['ht:me'].template_uri
+>>> partial_me = N['ht:me']
+>>> partial_me.template_uri
 'http://haltalk.herokuapp.com/users/{name}'
->>> Fred1 = N['ht:me', 'name':'fred23']
->>> Fred1
+>>> Fred = partial_me(name='fred23')
+>>> Fred
 HALNavigator('haltalk.users.fred23')
->>> Fred2 = N['ht:me'].expand(name='fred23')  # equivalent to Fred1
->>> Fred2()
-{'bio': None, 'real_name': 'Fred Wilson', 'username': 'fred23'}
->>> Fred1 is Fred2  # HALNavigator keeps an identity cache of resources
-True
+```
+
+Now that we have a real navigator, we can fetch the resource:
+
+```python
+>>> Fred()
+{u'bio': None, u'real_name': u'Fred Wilson', u'username': u'fred23'}
 ```
 
 ### Authentication
@@ -191,18 +200,22 @@ For basic auth (which haltalk uses), we can just pass a tuple.
 [authentication method that requests supports]: http://www.python-requests.org/en/latest/user/advanced/#custom-authentication
 
 ```python
->>> N.authenticate(('fred23', 'pwnme'))  # All subsequent calls are authenticated
+>>> N.authenticate(('fred23', 'hunter2'))  # All subsequent calls are authenticated
 ```
 
-Now we can actually create a new post:
+This doesn't send anything to the server, it just sets the authentication details that we'll use on the next request.
+Other authentication methods may contact the server immediately.
+
+Now we can put it all together to create a new post:
 
 ```python
->>> N_post = N['ht:me', 'name':'fred23']['ht:posts'].create({'content': 'My first post'})
+>>> N_post = N['me'](name='fred23')['posts'].create({'content': 'My first post'})
 >>> N_post
-HALNavigator(Haltalk.posts[523670eff0e6370002000001])
+HALNavigator(Haltalk.posts.523670eff0e6370002000001)
 >>> N_post()
-{'content': 'My first post', 'created_at': '2014-06-26T03:19:52+00:00'}
+{'content': 'My first post', 'created_at': '2015-06-13T19:38:59+00:00'}
 ```
+
 
 ## Additional Topics
 
@@ -218,7 +231,7 @@ It will automatically raise a StopIteration exception if a resource in the chain
 This makes moving through paged resources really simple and pythonic:
 
 ```python
-post_navigator = N['ht:posts']
+post_navigator = fred['ht:posts']
 for post in post_navigator:
     # the first post will be post_navigator itself
     print(post.state)
@@ -252,47 +265,19 @@ But, it can also go more than one link deep, which is equivalent to using multip
 N3 = N['curie:first_link']['curie:second_link']
 ```
 
-Another usage shown above is filling out templated links:
+And of course, if you set a default curie, you can omit it:
 
 ```python
->>> N['curie:posts'].template_uri
-"http://example.com/api/posts{?page}"
->>> N['curie:posts'].templated
-True
->>> N['curie:posts', 'page':3].uri
-"http://example.com/api/posts?page=3"
->>> N['curie:posts'].expand(page=3).uri
-"http://example.com/api/posts?page=3"
->>> N['curie:posts', 'page':3].templated
-False
+>>> N3 = N['first_link', 'second_link']
 ```
 
-If you have a templated Navigator and you want to quickly fill in its template parameters with nothing, you can use this syntax:
+Internally, this is completely equivalent to repeatedly applying the bracket operator, so you can even use it to jump over intermediate objects that aren't Navigators themselves:
 
 ```python
->>> N['curie:posts', :].templated
-False
->>> N['curie:posts', :].uri
-"http://example.com/api/posts"
+>>> N['some-link', 3, 'another-link']
 ```
 
-Similarly, if you have a templated Navigator and would like to fill in some of the parameters but leave the other parameters for later:
-
-```python
->>> N['curie:posts'].template_uri
-"http://example.com/api/posts{?page,size}
->>> N['curie:posts', 'page':3]
-"http://example.com/api/posts?page=3"
->>> N['curie:posts', page:3].templated
-False
->>> N['curie:posts', page:3, ...].templated
-True
->>> partial = N['curie:posts', page:3, ...]
->>> partial['size':12].uri
-"http://example.com/api/posts?page=3,size=12"
-```
-
-These tricks aren't necessary all of the time, but they can be very handy in the right situation.
+This would use the `some-link` link relation, select the third link from the list, and then follow `another-link` from that resource.
 
 ### Finding the right link
 
@@ -369,15 +354,15 @@ Now, when you follow links, you may leave off the default curie if you want:
 
 ```python
 >>> N.links
-{'ht:users': [HALNavigator(haltalk.users)],
- 'ht:signup': [HALNavigator(haltalk.signup)],
- 'ht:me': [HALNavigator(haltalk.users.{name})],
- 'ht:latest-posts': [HALNavigator(haltalk.posts.latest)]
+{'ht:users': [HALNavigator(Haltalk.users)],
+ 'ht:signup': [HALNavigator(Haltalk.signup)],
+ 'ht:me': [HALNavigator(Haltalk.users.{name})],
+ 'ht:latest-posts': [HALNavigator(Haltalk.posts.latest)]
 }
 >>> N['ht:users']
-HALNavigator(haltalk.users)
+HALNavigator(Haltalk.users)
 >>> N['users']
-HALNavigator(haltalk.users)
+HALNavigator(Haltalk.users)
 ```
 
 The only exception is where the key being supplied is a [IANA registered link relation][], and there is a conflict (hint: this should be quite rare):
@@ -386,11 +371,99 @@ The only exception is where the key being supplied is a [IANA registered link re
 
 ```python
 >>> N.links
-{'ht:next': HALNavigator(haltalk.unregistered),
-  'next': HALNavigator(haltalk.registered)}
+{'ht:next': HALNavigator(Haltalk.unregistered),
+  'next': HALNavigator(Haltalk.registered)}
 >>> N['next']
-HALNavigator(haltalk.registered)
+HALNavigator(Haltalk.registered)
 ```
+
+### Specifying an api name
+
+Sometimes the automatic api naming guesses poorly.
+If you'd like to override the default name, you can specify it when creating the navigator:
+
+```python
+>>> N = Navigator.hal('http://api.example.com', apiname='MySpecialAPI')
+HALNavigator(MySpecialAPI)
+```
+
+### Embedded documents
+
+In rest_navigator, embedded documents are treated transparently.
+This means that in many cases you don't need to worry about whether a document is embedded or whether it's just linked.
+
+As an example, assume we have a resource like the following:
+
+```json
+{
+  "_links": {
+     ...
+     "xx:yams": {
+        "href": "/yams"
+     }
+     ...
+  },
+  "_embedded": {
+     "xx:pickles": {
+       "_links": {
+         "self": {"href": "/pickles"}
+       },
+       "state": "A pickle"
+     }
+  }
+  ...
+}
+```
+
+From here, you would access both the `yams` and the `pickles` resource with normal bracket syntax:
+
+```python
+>>> Yams = N['xx:yams']
+>>> Pickles = N['xx:pickles']
+```
+
+The only difference here is that `Yams` hasn't been fetched yet, while `Pickles` is considered "resolved" already because we got it as an embedded document.
+
+```
+>>> Yams.resolved
+False
+>>> Yams.state # None
+>>> Pickles.resolved
+True
+>>> Pickles.state
+{'state': 'A pickle'}
+```
+
+If an embedded document has a self link, you can treat it just like you would any other resource.
+So if you want to refresh the resource, it's as easy as:
+
+```python
+>>> Pickles.fetch()
+```
+
+This will fetch the current state of the resource from the uri in its self link, even if you've never directly requested that uri before.
+If an embedded resource doesn't have a self link, it will be an `OrphanNavigator` with the parent set to the resource it was embedded in.
+
+Of course, if you need to directly distinguish between linked resources and embedded resources, there is an out:
+
+```python
+>>> N.embedded()
+{'xx:pickles': HALNavigator(api.pickles)
+>>> N.links()
+{'xx:yams': HALNavigator(api.yams)
+```
+
+However, when using the `in` operator, it will look in both for a key you're interested in:
+
+```python
+>>> 'yams' in N  # default curie is taken into account!
+True
+>>> 'xx:yams in N
+True
+>>> 'xx:pickles' in N
+True
+```
+
 
 ## Development
 ### Testing
@@ -411,10 +484,6 @@ $ py.test
 ### Planned for the future
 * Ability to add hooks for different types, rels and profiles. If a link has one
   of these properties, it will call your hook when doing a server call.
-* Take advantage of the "HTTP caching pattern" for embedded resources, and will
-  treat embedded documents as permission not to dereference a link. Rest
-  navigator handles this seamlessly underneath, so you don't have to worry about
-  whether a resource is embedded or not.
 * Since HAL doesn't specify what content type POSTs, PUTs, and PATCHes need to
   have, you can specify the hooks based on what the server will accept. This can
   trigger off either the rel type of the link, or rest navigator can do content
