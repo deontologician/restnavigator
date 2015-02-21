@@ -166,6 +166,15 @@ def objectify_uri(relative_uri):
     nice_uri = unidecode.unidecode(unquoted)
     return ''.join(path_clean(c) for c in nice_uri.split('/'))
 
+    
+def parse_media_type(media_type):
+    '''Returns type, subtype, parameter tuple from an http media_type.
+    Can be applied to the 'Accept' or 'Content-Type' http header fields.
+    '''
+    media_type, sep, parameter = str(media_type).partition(';')
+    media_type, sep, subtype = media_type.partition('/')
+    return tuple(x.strip() or None for x in (media_type, subtype, parameter))
+
 
 class LinkList(list):
     '''A list subclass that offers different ways of grabbing the values based
