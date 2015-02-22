@@ -195,6 +195,7 @@ class HALNavigatorBase(object):
                  state=None,
                  curies=None,
                  _links=None,
+                 _embedded=None,
                  ):
         '''Internal constructor. If you want to create a new
         HALNavigator, use the factory `Navigator.hal`
@@ -206,9 +207,12 @@ class HALNavigatorBase(object):
             self.self = link
             self.response = response
             self.state = state
+            self.fetched = response is not None
             self.curies = curies
             self._core = core
-            self._links = _links
+            self._links = _links or utils.CurieDict(core.default_curie, {})
+            self._embedded = _embedded or utils.CurieDict(
+                core.default_curie, {})
             core.cache(link, self)
 
     @property
@@ -240,8 +244,8 @@ class HALNavigatorBase(object):
         return self._core.session.headers
 
     @property
-    def fetched(self):
-        return self.response is not None
+    def resolved(self):
+        return self.fetched or self.state is not None
 
     def __repr__(self):  # pragma: nocover
         relative_uri = self.self.relative_uri(self._core.root)
@@ -257,9 +261,18 @@ class HALNavigatorBase(object):
         '''Returns a dictionary of navigators from the current
         resource. Fetches the resource if necessary.
         '''
-        if not self.fetched:
+        if not self.resolved:
             self.fetch()
-        return dict(self._links)
+        return self._links
+
+    def embedded(self):
+        '''Returns a dictionary of navigators representing embedded
+        documents in the current resource. If the navigators have self
+        links they can be fetched as well.
+        '''
+        if not self.resolved:
+            self.fetch()
+        return self._embedded
 
     @property
     def status(self):
@@ -287,11 +300,20 @@ class HALNavigatorBase(object):
             last = current
 
     def __nonzero__(self):
-        if self.response is None:
+        '''Whether this navigator was successful.'''
+        if not self.resolved:
             raise exc.NoResponseError(
                 'this navigator has not been fetched '
                 'yet, so we cannot determine if it succeeded')
         return bool(self.response)
+
+    def __contains__(self, value):
+        if not self.resolved:
+            raise exc.NoResponseError(
+                'this navigator has not been fetched '
+                'yet, so we cannot determine if it contains a link '
+                'relation')
+        return value in self._links or value in self._embedded
 
     def next(self):
         try:
@@ -311,7 +333,12 @@ class HALNavigatorBase(object):
             try:
                 if isinstance(arg, six.string_types):
                     val()  # fetch the resource if necessary
-                    val = val._links[arg]
+                    if val._embedded and arg in val._embedded:
+                        val = val._embedded[arg]
+                    else:
+                        # We're hoping it's in links, otherwise we're
+                        # off the tracks
+                        val = val.links()[arg]
                 elif isinstance(arg, tuple):
                     val = val.get_by(*arg, raise_exc=True)
                 elif isinstance(arg, int) and isinstance(val, list):
@@ -338,7 +365,7 @@ class HALNavigatorBase(object):
 
     def _make_links_from(self, body):
         '''Creates linked navigators from a HAL response body'''
-        ld = utils.LinkDict(self._core.default_curie, {})
+        ld = utils.CurieDict(self._core.default_curie, {})
         for rel, link in body.get('_links', {}).items():
             if rel != 'curies':
                 if isinstance(link, list):
@@ -347,6 +374,57 @@ class HALNavigatorBase(object):
                 else:
                     ld[rel] = self._navigator_or_thunk(link)
         return ld
+
+    def _make_embedded_from(self, doc):
+        '''Creates embedded navigators from a HAL response doc'''
+        ld = utils.CurieDict(self._core.default_curie, {})
+        for rel, doc in doc.get('_embedded', {}).items():
+            if isinstance(doc, list):
+                ld[rel] = [self._recursively_embed(d) for d in doc]
+            else:
+                ld[rel] = self._recursively_embed(doc)
+        return ld
+
+    def _recursively_embed(self, doc, update_state=True):
+        '''Crafts a navigator from a hal-json embedded document'''
+        self_link = None
+        self_uri = utils.getpath(doc, '_links.self.href')
+        if self_uri is not None:
+            uri = urlparse.urljoin(self.uri, self_uri)
+            self_link = Link(
+                uri=uri,
+                properties=utils.getpath(doc, '_links.self')
+            )
+        curies = utils.getpath(doc, '_links.curies')
+        state = utils.getstate(doc)
+        if self_link is None:
+            nav = OrphanHALNavigator(
+                link=None,
+                response=None,
+                parent=self,
+                core=self._core,
+                curies=curies,
+                state=state,
+            )
+        else:
+            nav = HALNavigator(
+                link=self_link,
+                response=None,
+                core=self._core,
+                curies=curies,
+                state=state,
+            )
+        if update_state:
+            nav.state = state
+
+        links = self._make_links_from(doc)
+        if links is not None:
+            nav._links = links
+        embedded = self._make_embedded_from(doc)
+        if embedded is not None:
+            nav._embedded = embedded
+        return nav
+
 
     def _navigator_or_thunk(self, link):
         '''Crafts a navigator or from a hal-json link dict.
@@ -385,7 +463,7 @@ class HALNavigatorBase(object):
         return False
 
     def _parse_content(self, text):
-        '''Parses the content of a response body into the correct
+        '''Parses the content of a response doc into the correct
         format for .state.
         '''
         try:
@@ -403,9 +481,11 @@ class HALNavigatorBase(object):
         self.self.props
 
     def _ingest_response(self, response):
-        '''Takes a response object and ingests state, links, and
-        updates the self link of this navigator to correspond. This
-        will only work if the response is valid JSON'''
+        '''Takes a response object and ingests state, links, embedded
+        documents and updates the self link of this navigator to
+        correspond. This will only work if the response is valid
+        JSON
+        '''
         self.response = response
         if self._can_parse(response.headers['Content-Type']):
             hal_json = self._parse_content(response.text)
@@ -419,6 +499,7 @@ class HALNavigatorBase(object):
                 response=self.response,
             )
         self._links = self._make_links_from(hal_json)
+        self._embedded = self._make_embedded_from(hal_json)
         # Set properties from new document's self link
         self._update_self_link(
             hal_json.get('_links', {}).get('self', {}),
@@ -430,9 +511,7 @@ class HALNavigatorBase(object):
             for curie in
             hal_json.get('_links', {}).get('curies', []))
         # Set state by removing HAL attributes
-        self.state = dict(
-            (k, v) for k, v in hal_json.items()
-            if k not in ['_links'])
+        self.state = utils.getstate(hal_json)
 
 
 class HALNavigator(HALNavigatorBase):
@@ -505,6 +584,7 @@ class HALNavigator(HALNavigatorBase):
     def fetch(self, raise_exc=True):
         '''Performs a GET request to the uri of this navigator'''
         self._request(GET, raise_exc=raise_exc)  # ingests response
+        self.fetched = True
         return self.state.copy()
 
     def create(self, body=None, raise_exc=True, headers=None):
