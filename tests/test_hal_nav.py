@@ -427,41 +427,6 @@ def test_HALNavigator__fetch():
         assert fetch2['name'] == 'body1'
         assert fetch3['name'] == 'body2'
 
-@pytest.mark.parametrize(('status_code', 'post_body'), [
-    (302, {'name': 'foo'}),
-    (303, {'name': 'foo'}),
-    (201, {'name': 'foo'}),
-    (202, {'name': 'foo'}),
-    (303, '{"name": "foo"}'),
-])
-def test_HALNavigator__create(status_code, post_body):
-    with httprettify() as HTTPretty:
-        index_uri = 'http://www.example.com/api/'
-        hosts_uri = index_uri + 'hosts'
-        new_resource_uri = index_uri + 'new_resource'
-        index_links = {'hosts': {'href': hosts_uri}}
-        register_hal(index_uri, index_links)
-        register_hal(new_resource_uri)
-        HTTPretty.register_uri('POST',
-                               uri=hosts_uri,
-                               location=new_resource_uri,
-                               status=status_code,
-        )
-        N = HN.Navigator.hal(index_uri)
-        N2 = N['hosts']
-        N3 = N2.create(post_body)
-        last_request_method = HTTPretty.last_request.method
-        assert last_request_method == 'POST'
-        last_content_type = HTTPretty.last_request.headers['Content-Type']
-        assert last_content_type == 'application/json'
-        assert HTTPretty.last_request.body == b'{"name": "foo"}'
-        if status_code == 202:
-            assert N3.parent.uri == N2.uri
-            assert N3.fetched
-        else:
-            assert N3.uri == new_resource_uri
-            assert not N3.fetched
-
 @pytest.mark.parametrize('status_code', [200, 202, 204])
 def test_HALNavigator__delete(status_code):
     with httprettify() as HTTPretty:

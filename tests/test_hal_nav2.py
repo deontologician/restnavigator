@@ -24,18 +24,22 @@ def link_to(doc):
 
 
 def register_hal_page(doc, **kwargs):
+    status = kwargs.pop('status', 200)
+    method = kwargs.pop('method', 'GET')
+    content_type = kwargs.pop('content_type', 'application/hal+json')
     def body_callback(request, url, headers):
         '''We do a callback so the response body can be updated'''
+        headers2 = kwargs.pop('headers', headers)
         return (
-            kwargs.get('status', 200),
-            kwargs.get('headers', headers),
+            status,
+            headers2,
             json.dumps(doc),
         )
 
     httpretty.HTTPretty.register_uri(
-        kwargs.get('method', 'GET'),
+        method,
         body=body_callback,
-        content_type=kwargs.get('content_type', 'application/hal+json'),
+        content_type=content_type,
         uri=uri_of(doc),
         **kwargs
     )
@@ -469,3 +473,74 @@ class TestEmbedded:
         # except that we already saw it as an embedded doc.
         assert nested1_linked.resolved
         assert nested1 is nested1_linked
+
+
+class TestCreate:
+
+    @pytest.fixture
+    def new_resource(self, page):
+        grelp = page('grelp', 0)
+        register_hal_page(grelp)
+        return grelp
+
+    @pytest.fixture(params=[302, 303, 202, 202, 303])
+    def post_status(self, request):
+        return request.param
+
+    @pytest.fixture
+    def hosts(self, page, http, post_status, new_resource):
+        host_page = page('hosts', 0)
+        register_hal_page(
+            host_page,
+            method='POST',
+            status=post_status,
+            location=uri_of(new_resource),
+        )
+        return host_page
+
+    @pytest.fixture
+    def index(self, hosts, index_uri):
+        doc = {
+            '_links': {
+                'self': {'href': index_uri},
+                'xx:create-hosts': link_to(hosts),
+            }
+        }
+        register_hal_page(doc)
+        return doc
+
+    def test_uses_post(self, N, index, http):
+        N['xx:create-hosts'].create({'name': 'foo'})
+        last_request_method = http.last_request.method
+        assert last_request_method == 'POST'
+
+    def test_content_type_json(self, N, index, http):
+        N['xx:create-hosts'].create({'name': 'foo'})
+        last_content_type = http.last_request.headers['Content-Type']
+        assert last_content_type == 'application/json'
+
+    def test_body_is_correct(self, N, index, http):
+        N['xx:create-hosts'].create({'name': 'foo'})
+        last_body = http.last_request.body
+        last_body == b'{"name": "foo"}'
+
+    def test_new_resource_uri_correct(
+            self, N, index, new_resource, post_status):
+        N2 = N['xx:create-hosts']
+        N3 = N2.create({'name': 'foo'})
+        if post_status == 202:
+            assert N3.parent.uri == N2.uri
+            assert N3.fetched
+        else:
+            assert N3.uri == uri_of(new_resource)
+            assert not N3.fetched
+
+    def test_headers_passed(self, N, index, http):
+        headers = {'X-Custom': 'foo'}
+        N['xx:create-hosts'].create({'name': 'foo'}, headers=headers)
+        custom_header = http.last_request.headers['X-Custom']
+        assert custom_header == 'foo'
+
+    def test_empty_post(self, N, index):
+        # Just want to ensure no error is thrown
+        N['xx:create-hosts'].create()
