@@ -305,6 +305,7 @@ class HALNavigatorBase(object):
         last = self
         while True:
             current = last.next()
+            current() # fetch if necessary
             yield current
             last = current
 
