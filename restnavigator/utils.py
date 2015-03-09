@@ -19,6 +19,7 @@ except ImportError:
 import re
 import collections
 import itertools
+import copy
 import six
 if hasattr(str, 'maketrans'):
     translate = lambda s, trans: s.translate(str.maketrans('', '', "abcdef:.[]"))
@@ -166,7 +167,7 @@ def objectify_uri(relative_uri):
     nice_uri = unidecode.unidecode(unquoted)
     return ''.join(path_clean(c) for c in nice_uri.split('/'))
 
-    
+
 def parse_media_type(media_type):
     '''Returns type, subtype, parameter tuple from an http media_type.
     Can be applied to the 'Accept' or 'Content-Type' http header fields.
@@ -228,18 +229,50 @@ class LinkList(list):
         return self.get_by('name', name)
 
 
-class LinkDict(dict):
+class CurieDict(dict):
     '''dict subclass that allows specifying a default curie. This
     enables multiple ways to access an item'''
 
     def __init__(self, default_curie, d):
-        super(LinkDict, self).__init__(d)
+        super(CurieDict, self).__init__(d)
         self.default_curie = default_curie
+
+    def __contains__(self, key):
+        if super(CurieDict, self).__contains__(key):
+            return True
+        else:
+            implicit_key = '{0}:{1}'.format(self.default_curie, key)
+            return super(CurieDict, self).__contains__(implicit_key)
 
     def __getitem__(self, key):
         if (':' in key
-            or (key in self and key in registry.iana_rels)
+            or (super(CurieDict, self).__contains__(key)
+                and key in registry.iana_rels)
             or self.default_curie is None):
-            return super(LinkDict, self).__getitem__(key)
+            return super(CurieDict, self).__getitem__(key)
         implicit_key = '{0}:{1}'.format(self.default_curie, key)
-        return super(LinkDict, self).__getitem__(implicit_key)
+        return super(CurieDict, self).__getitem__(implicit_key)
+
+
+def getpath(d, json_path, default=None, sep='.'):
+    '''Gets a value nested in dictionaries containing dictionaries.
+    Returns the default if any key in the path doesn't exist.
+    '''
+    for key in json_path.split(sep):
+        try:
+            d = d[key]
+        except (KeyError, TypeError):
+            return default
+    return d
+
+
+def getstate(d):
+    '''Deep copies a dict, and returns it without the keys _links and
+    _embedded
+    '''
+    if not isinstance(d, dict):
+        raise TypeError("Can only get the state of a dictionary")
+    cpd = copy.deepcopy(d)
+    cpd.pop('_links', None)
+    cpd.pop('_embedded', None)
+    return cpd

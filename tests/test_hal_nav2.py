@@ -344,15 +344,13 @@ class TestHALNavGetItem:
         assert Nc.status == (200, 'OK')
 
 
-@pytest.mark.xfail(reason="Embedded not implemented yet")
 class TestEmbedded:
     '''tests for embedded document features'''
 
-
     @pytest.fixture
-    def blog_posts(self, http):
+    def blog_posts(self, http, page):
         '''Posts are both linked and embedded'''
-        _posts = [self.page('post', x) for x in range(3)]
+        _posts = [page('post', x) for x in range(3)]
         for post in _posts:
             register_hal_page(post)
         return _posts
@@ -366,7 +364,21 @@ class TestEmbedded:
         return comments
 
     @pytest.fixture
-    def index(self, index_uri, comments, blog_posts, http):
+    def nested(self, page):
+        '''Nested are several layers deep embedded docs. They are not
+        linked to, but do have urls.
+        '''
+        nested = [page('nested', n) for n in range(3)]
+        for (nest1, nest2) in zip(nested[:-1], nested[1:]):
+            nest1['_embedded'] = {
+                'xx:nested': nest2
+            }
+            register_hal_page(nest1)
+        register_hal_page(nest2) # register remaining page
+        return nested
+
+    @pytest.fixture
+    def index(self, index_uri, comments, blog_posts, http, nested):
         doc = {
             '_links': {
                 'curies': [{
@@ -377,7 +389,9 @@ class TestEmbedded:
                 'self': {'href': index_uri},
                 'first': link_to(blog_posts[0]),
                 'xx:second': link_to(blog_posts[1]),
-                'xx:posts': [link_to(post) for post in blog_posts]
+                'xx:posts': [link_to(post) for post in blog_posts],
+                'xx:nested-links': [link_to(nest) for nest in nested],
+                'xx:non-embedded-nest': link_to(nested[0]),
             },
             'data': 'Some data here',
             '_embedded': {
@@ -388,16 +402,70 @@ class TestEmbedded:
         register_hal_page(doc)
         return doc
 
-    def test_only_idempotent(self, N, index):
-        assert not N['xx:comments'][0].idempotent
+    def test_comments_are_orphans(self, N, index):
+        '''Checks that all embedded documents that don't have self
+        links are OrphanHALNavigators
+        '''
+        comments = N['xx:comments']
+        for comment in comments:
+            assert comment.parent is N
+
+    def test_posts_arent_orphans(self, N, index):
+        posts = N['xx:posts']
+        for i, post in enumerate(posts):
+            href = index['_embedded']['xx:posts'][i]['_links']['self']['href']
+            assert post.uri == href
 
     def test_length_accurate(self, N, index, comments):
         assert len(N['xx:comments']) == len(comments)
 
-    def test_links_and_embedded(self, N, index):
+    def test_embedded_only_rel_in_navigator(self, N, index):
+        N.fetch()
         assert 'xx:comments' in N
-        assert 'xx:comments' not in N.links
-        assert 'xx:comments' in N.embedded
+
+    def test_embedded_only_rel_not_in_links(self, N, index):
+        assert 'xx:comments' not in N.links()
+
+    def test_embedded_only_rel_in_embedded(self, N, index):
+        assert 'xx:comments' in N.embedded()
+
+    def test_both_rel_in_navigator(self, N, index):
+        N.fetch()
         assert 'xx:posts' in N
-        assert 'xx:posts' in N.links
-        assert 'xx:posts' in N.embedded
+
+    def test_both_rel_in_links(self, N, index):
+        assert 'xx:posts' in N.links()
+
+    def test_both_rel_in_embedded(self, N, index):
+        assert 'xx:posts' in N.embedded()
+
+    def test_embedded_default_curie(self, N, index):
+        N._core.default_curie = 'xx'
+        p1 = N['posts']
+        assert p1 is N['xx:posts']
+
+    def test_nested_works(self, N, index, nested):
+        nest1 = N['xx:non-embedded-nest']
+        nest2 = nest1['xx:nested']
+        nest3 = nest2['xx:nested']
+
+        nest3_chained = N['xx:non-embedded-nest', 'xx:nested', 'xx:nested']
+        assert nest3 is nest3_chained
+
+    def test_fetch_then_get_embedded(self, N, index):
+        # for this test, nested[0] is linked from index, but not
+        # embedded anywhere. nested[1] is embedded in nested[0], but
+        # is also its own resource. We want to ensure the same
+        # navigator object is used for both
+        nested1 = N['xx:nested-links'][1]
+        nested1.fetch()
+        assert N['xx:non-embedded-nest', 'xx:nested'] is nested1
+
+    def test_get_embedded_then_fetch(self, N, index):
+        # reverse order of previous test
+        nested1 = N['xx:non-embedded-nest', 'xx:nested']
+        nested1_linked = N['xx:nested-links'][1]
+        # Nothing we've done to nested1_linked should have resolved it
+        # except that we already saw it as an embedded doc.
+        assert nested1_linked.resolved
+        assert nested1 is nested1_linked

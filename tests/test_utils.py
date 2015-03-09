@@ -61,8 +61,8 @@ def test_parse_media_type():
     assert parse('foo/bar+baz') == ('foo', 'bar+baz', None)
     assert parse('foo/bar+baz; param=foo') == ('foo', 'bar+baz', 'param=foo')
     assert parse('foo/bar+baz; param=foo, param=bar') == ('foo', 'bar+baz', 'param=foo, param=bar')
-    assert parse('  foo/bar+baz ; param=foo  ') == ('foo', 'bar+baz', 'param=foo') 
-    
+    assert parse('  foo/bar+baz ; param=foo  ') == ('foo', 'bar+baz', 'param=foo')
+
 
 @pytest.mark.parametrize(('root_uri', 'expected'), [
     ('http://www.example.com', 'Example'),
@@ -198,3 +198,34 @@ def test_LinkList__get_by_unicode_valu():
     prop_list = [('VALUE', {'title': unicode_value})]
     test_list = RNU.LinkList(prop_list)
     assert test_list.get_by('title', unicode_value) == 'VALUE'
+
+@pytest.mark.parametrize("test,key,expected", [
+    ({"a": {"b": {"c": 3}}}, "a.b.c", 3),
+    ({"a": {"b": "c"}}, "a.b.c", None),
+    ({"a": {"b": ["c", "d"]}}, "a.b.c", None),
+    ({"a": {"b": {"x": 1, "y": 2}}}, "a.b.c", None),
+    ({"a.b": {"c": 3}}, "a.b.c", None),
+])
+def test_getpath(test, key, expected):
+    assert RNU.getpath(test, key) == expected
+
+@pytest.mark.parametrize("doc,expected", [
+    ({"_links": {}}, {}),
+    ({"_embedded": {}}, {}),
+    ({"_embedded": {}, "_links": {}}, {}),
+    ({"_embedded": {}, "a": 1}, {"a": 1}),
+    # Note that "_links": [] is invalid HAL, but we don't care
+    ({"_links": [], "b": 2, "c": 3}, {"b": 2, "c": 3}),
+])
+def test_getstate(doc, expected):
+    assert RNU.getstate(doc) == expected
+
+
+@pytest.mark.parametrize("doc,exception", [
+    ("hiyas", TypeError),
+    (1, TypeError),
+    (["hams"], TypeError),
+])
+def test_getstate_failures(doc, exception):
+    with pytest.raises(exception):
+        RNU.getstate(doc)
