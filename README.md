@@ -1,6 +1,6 @@
 # REST Navigator
 
-[![Build Status](https://img.shields.io/travis/deontologician/rest_navigator/next.svg)](https://travis-ci.org/deontologician/rest_navigator)
+[![Build Status](https://img.shields.io/travis/deontologician/restnavigator/next.svg)](https://travis-ci.org/deontologician/restnavigator)
 [![Coverage Status](https://img.shields.io/coveralls/deontologician/rest_navigator/next.svg)](https://coveralls.io/r/deontologician/rest_navigator?branch=next)
 
 REST Navigator is a python library for interacting with hypermedia apis ([REST level 3][]).
