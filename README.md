@@ -10,6 +10,12 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
 [REST level 3]: http://martinfowler.com/articles/richardsonMaturityModel.html#level3
 [HAL+JSON]: http://tools.ietf.org/html/draft-kelly-json-hal-05
 
+To install it, simply use pip:
+
+```bash
+$ pip install restnavigator
+```
+
 ## Contents
 
 - [How to use it](#how-to-use-it)
