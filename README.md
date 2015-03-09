@@ -491,3 +491,12 @@ $ py.test
   trigger off either the rel type of the link, or rest navigator can do content
   negotiation over HTTP with the server directly to see what content types that
   resource will accept.
+
+
+### Contributors
+
+Thanks very much to rest navigator's contributors:
+
+- [dudycooly](http://github.com/dudycooly)
+- [bubenkoff](http://github.com/bubenkoff)
+- [bbsgfalconer](http://github.com/bbsgfalconer)
