@@ -151,6 +151,15 @@ class TemplatedThunk(object):
             link=self.expand_link(**kwargs),
         )
 
+    def __repr__(self):
+        relative_uri = self.link.relative_uri(self._core.root)
+        objectified_uri = utils.objectify_uri(relative_uri)
+        return "{cls}({name}{path})".format(
+            cls=type(self).__name__,
+            name=self._core.apiname,
+            path=objectified_uri,
+)
+
 
 class Navigator(object):
     '''A factory for other navigators. Makes creating them more
