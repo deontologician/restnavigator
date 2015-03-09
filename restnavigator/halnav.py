@@ -3,7 +3,7 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-__version__ = '1.0pre'
+__version__ = '1.0'
 
 from weakref import WeakValueDictionary
 try:
