@@ -49,7 +49,7 @@ tests_require = [
 
 setup(
     name="restnavigator",
-    version="0.2.1",
+    version="1.0",
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     description='A python library for interacting with HAL+JSON APIs',
@@ -64,7 +64,6 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS :: MacOS X",
-        "Topic :: Software Development :: API",
         "Topic :: Software Development :: Libraries",
         "Topic :: Utilities",
         "Programming Language :: Python :: 2",
