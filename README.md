@@ -27,6 +27,8 @@ Its first goal is to make interacting with HAL hypermedia apis as painless as po
     - [Bracket mini-language](#bracket-minilanguage)
     - [Finding the right link](#finding-the-right-link)
     - [Default curie](#default-curie)
+    - [Specifying an api name](#specifying-an-api-name)
+    - [Embedded documents](#embedded-documents)
 - [Development](#development)
     - [Testing](#testing)
     - [Planned for the future](#planned-for-the-future)
