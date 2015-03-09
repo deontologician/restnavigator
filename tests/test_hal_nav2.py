@@ -544,3 +544,16 @@ class TestCreate:
     def test_empty_post(self, N, index):
         # Just want to ensure no error is thrown
         N['xx:create-hosts'].create()
+
+    @pytest.fixture
+    def intermediate(self, N, index):
+        return N['xx:create-hosts'].create(auto_redirect=False)
+
+    def test_intermediate_status(self, intermediate, post_status):
+        assert intermediate.status[0] == post_status
+
+    def test_intermediate_redirect(self, intermediate):
+        assert intermediate.redirect().status == (200, 'OK')
+
+    def test_intermediate_redirect_uri(self, intermediate, new_resource):
+        assert intermediate.redirect().uri == uri_of(new_resource)

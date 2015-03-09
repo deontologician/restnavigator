@@ -459,15 +459,18 @@ class HALNavigatorBase(object):
         Checks that the content_type matches one of the types specified
         in the 'Accept' header of the request, if supplied.
         If not supplied, matches against the default'''
-        content_type, content_subtype, content_param = utils.parse_media_type(content_type)
-        for accepted in self.headers.get('Accept', self.DEFAULT_CONTENT_TYPE).split(','):
+        content_type, content_subtype, content_param = \
+            utils.parse_media_type(content_type)
+        for accepted in self.headers.get(
+                'Accept', self.DEFAULT_CONTENT_TYPE).split(','):
             type, subtype, param = utils.parse_media_type(accepted)
             # if either accepted_type or content_type do not
             # contain a parameter section, then it will be
             # optimistically ignored
-            matched = (type == content_type) \
-                      and (subtype == content_subtype) \
-                      and (param == content_param or not (param and content_param))
+            matched = ((type == content_type)
+                       and (subtype == content_subtype)
+                       and (param == content_param
+                            or not (param and content_param)))
             if matched:
                 return True
         return False
@@ -528,12 +531,15 @@ class HALNavigator(HALNavigatorBase):
     '''The main navigation entity'''
 
     def __call__(self, raise_exc=True):
-        if self.response is None:
+        if not self.resolved:
             return self.fetch(raise_exc=raise_exc)
         else:
             return self.state.copy()
 
-    def _create_navigator(self, response, raise_exc=True):
+    def _create_navigator(self,
+                          response,
+                          raise_exc=True,
+                          auto_redirect=True):
         '''Create the appropriate navigator from an api response'''
         method = response.request.method
         # TODO: refactor once hooks in place
@@ -544,12 +550,15 @@ class HALNavigator(HALNavigatorBase):
                 http_client.SEE_OTHER,
                 http_client.NO_CONTENT) \
            and 'Location' in response.headers:
-            nav = HALNavigator(
-                link=Link(uri=response.headers['Location']),
-                core=self._core
-            )
-            # We don't ingest the response because we haven't fetched
-            # the newly created resource yet
+            link=Link(uri=response.headers['Location'])
+            if auto_redirect:
+                nav = HALNavigator(link=link, core=self._core)
+                # We don't ingest the response because we haven't fetched
+                # the newly created resource yet
+            else:
+                nav = RedirectionNavigator(
+                    link=link, core=self._core, parent=self)
+                nav._ingest_response(response)
         elif method in (POST, PUT, PATCH, DELETE):
             nav = OrphanHALNavigator(
                 link=None,
@@ -566,7 +575,12 @@ class HALNavigator(HALNavigatorBase):
 
         return nav
 
-    def _request(self, method, body=None, raise_exc=True, headers=None):
+    def _request(self,
+                 method,
+                 body=None,
+                 raise_exc=True,
+                 headers=None,
+                 auto_redirect=True):
         '''Fetches HTTP response using the passed http method. Raises
         HALNavigatorError if response is in the 400-500 range.'''
         headers = headers or {}
@@ -580,7 +594,8 @@ class HALNavigator(HALNavigatorBase):
             headers=headers,
             allow_redirects=False,
         )
-        nav = self._create_navigator(response, raise_exc=raise_exc)
+        nav = self._create_navigator(
+            response, raise_exc=raise_exc, auto_redirect=auto_redirect)
         if raise_exc and not response:
             raise exc.HALNavigatorError(
                 message=response.text,
@@ -597,7 +612,8 @@ class HALNavigator(HALNavigatorBase):
         self.fetched = True
         return self.state.copy()
 
-    def create(self, body=None, raise_exc=True, headers=None):
+    def create(self,
+               body=None, raise_exc=True, headers=None, auto_redirect=True):
         '''Performs an HTTP POST to the server, to create a
         subordinate resource. Returns a new HALNavigator representing
         that resource.
@@ -605,16 +621,16 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(POST, body, raise_exc, headers)
+        return self._request(POST, body, raise_exc, headers, auto_redirect)
 
-    def delete(self, raise_exc=True, headers=None):
+    def delete(self, raise_exc=True, headers=None, auto_redirect=True):
         '''Performs an HTTP DELETE to the server, to delete resource(s).
 
         `headers` are additional headers to send in the request'''
 
-        return self._request(DELETE, None, raise_exc, headers)
+        return self._request(DELETE, None, raise_exc, headers, auto_redirect)
 
-    def upsert(self, body, raise_exc=True, headers=False):
+    def upsert(self, body, raise_exc=True, headers=False, auto_redirect=True):
         '''Performs an HTTP PUT to the server. This is an idempotent
         call that will create the resource this navigator is pointing
         to, or will update it if it already exists.
@@ -622,9 +638,9 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(PUT, body, raise_exc, headers)
+        return self._request(PUT, body, raise_exc, headers, auto_redirect)
 
-    def patch(self, body, raise_exc=True, headers=False):
+    def patch(self, body, raise_exc=True, headers=False, auto_redirect=True):
         '''Performs an HTTP PATCH to the server. This is a
         non-idempotent call that may update all or a portion of the
         resource this navigator is pointing to. The format of the
@@ -633,7 +649,7 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(PATCH, body, raise_exc, headers)
+        return self._request(PATCH, body, raise_exc, headers, auto_redirect)
 
 
 class OrphanHALNavigator(HALNavigatorBase):
@@ -683,3 +699,23 @@ class OrphanHALNavigator(HALNavigatorBase):
     def _navigator_or_thunk(self, link):
         '''We need to resolve relative links against the parent uri'''
         return HALNavigatorBase._navigator_or_thunk(self.parent, link)
+
+
+class RedirectionNavigator(OrphanHALNavigator):
+    '''A special subclass of OrphanHALNavigator that's only created
+    when you need to prevent automatic redirection when creating a new
+    resource. It has one additional method, `redirect` that completes
+    the redirection and returns the final resource.
+    '''
+
+    def redirect(self, raise_exc=True, resolve=True):
+        '''Complete the redirection. By default it fetches the final
+        resource, but it may also return the resource unresolved.
+        '''
+        link=Link(uri=self.response.headers['Location'])
+        print("about to create a nav")
+        nav = HALNavigator(link=link, core=self._core)
+        print("created a", nav)
+        if resolve:
+            nav()
+        return nav
