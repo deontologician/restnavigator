@@ -1,2 +1,7 @@
+__version__ = '1.0'
 
-from .halnav import Navigator
+try:
+    from .halnav import Navigator  # NOQA
+except ImportError:
+    # for setup.py and docs
+    pass
