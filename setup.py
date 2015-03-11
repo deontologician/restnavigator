@@ -64,6 +64,7 @@ setup(
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     description='A python library for interacting with HAL+JSON APIs',
+    long_description=long_description,
     url='https://github.com/deontologician/rest_navigator',
     license="MIT",
     packages=['restnavigator'],
