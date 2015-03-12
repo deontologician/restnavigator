@@ -1,7 +1,7 @@
 REST Navigator
 ==============
 
-|Build Status|Coverage Status|Documentation Status|
+|Build Status| |Coverage Status| |Documentation Status|
 
 REST Navigator is a python library for interacting with hypermedia apis
 (`REST level
