@@ -2,6 +2,8 @@
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
 import sys
+import os
+import codecs
 
 
 install_requires = [
@@ -46,13 +48,23 @@ tests_require = [
     "pytest-cache",
 ],
 
+import restnavigator
+
+dirname = os.path.dirname(__file__)
+
+long_description = (
+    codecs.open(os.path.join(dirname, 'README.rst'), encoding='utf-8').read() + '\n' +
+    codecs.open(os.path.join(dirname, 'CHANGES.rst'), encoding='utf-8').read()
+)
+
 
 setup(
     name="restnavigator",
-    version="1.0",
+    version=restnavigator.__version__,
     author="Josh Kuhn",
     author_email="deontologician@gmail.com",
     description='A python library for interacting with HAL+JSON APIs',
+    long_description=long_description,
     url='https://github.com/deontologician/rest_navigator',
     license="MIT",
     packages=['restnavigator'],

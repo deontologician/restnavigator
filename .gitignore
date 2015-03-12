@@ -10,3 +10,4 @@ dist/
 /.tox
 /.eggs
 /build
+/docs/_build
