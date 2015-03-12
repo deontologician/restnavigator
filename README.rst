@@ -1,7 +1,7 @@
 REST Navigator
 ==============
 
-|Build Status| |Coverage Status| |Documentation Status|
+|Build Status| |Coverage Status| |Pypi Status| |Documentation Status|
 
 REST Navigator is a python library for interacting with hypermedia apis
 (`REST level
@@ -592,3 +592,6 @@ Thanks very much to rest navigator's contributors:
 .. |Documentation Status| image:: https://readthedocs.org/projects/rest-navigator/badge/?version=latest
    :target: https://readthedocs.org/projects/rest-navigator/?badge=latest
    :alt: Documentation Status
+.. |Pypi Status| image:: https://pypip.in/v/restnavigator/badge.png
+   :target: https://crate.io/packages/restnavigator/
+
