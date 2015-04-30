@@ -262,6 +262,18 @@ Now we can put it all together to create a new post:
     >>> N_post()
     {'content': 'My first post', 'created_at': '2015-06-13T19:38:59+00:00'}
 
+It is also possible to specify a custom requests Session object when creating 
+a new navigator.
+
+For example, if you want to talk to a OAuth2 protected api, simply pass 
+a OAuth2 Session object that will be used for all requests done by HALNavigator:
+
+.. code:: python
+
+    >>> from requests_oauthlib import OAuth2Session
+    >>> oauth2_session = OAuth2Session(r'client_id', token='token')
+    >>> N = Navigator.hal('https://api.example.com', session=oauth2_session)
+
 Additional Topics
 -----------------
 
