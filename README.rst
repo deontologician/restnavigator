@@ -266,7 +266,8 @@ It is also possible to specify a custom requests Session object when creating
 a new navigator.
 
 For example, if you want to talk to a OAuth2 protected api, simply pass 
-a OAuth2 Session object that will be used for all requests done by HALNavigator:
+an OAuth2 Session object that will be used for all requests 
+done by HALNavigator:
 
 .. code:: python
 

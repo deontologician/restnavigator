@@ -127,6 +127,23 @@ def N(index_uri, index_page):
     return RN.Navigator.hal(index_uri)
 
 
+class TestNavigator:
+    '''tests for halnav.Navigator'''
+
+    @pytest.fixture
+    def fake_session(self):
+        '''Creates a non functional fake session object'''
+        class FakeNonFuncSession:
+            headers = {'X-Custom': 'foo'}
+        return FakeNonFuncSession()
+
+    def test_custom_session(self, index_uri, fake_session):
+        N = RN.Navigator.hal(index_uri, session=fake_session)
+        N2 = RN.Navigator.hal(index_uri)
+        assert N._core.session is fake_session
+        assert N.headers is fake_session.headers
+
+
 class TestPartialNavigator:
     '''tests for halnav.PartialNavigator'''
 

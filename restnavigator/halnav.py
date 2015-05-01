@@ -172,7 +172,7 @@ class Navigator(object):
             default_curie=None,
             auth=None, 
             headers=None, 
-            session=None
+            session=None,
             ):
         '''Create a HALNavigator'''
         root = utils.fix_scheme(root)
