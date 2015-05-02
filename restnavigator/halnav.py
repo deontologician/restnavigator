@@ -167,7 +167,13 @@ class Navigator(object):
     '''
 
     @staticmethod
-    def hal(root, apiname=None, default_curie=None, auth=None, headers=None):
+    def hal(root, 
+            apiname=None, 
+            default_curie=None,
+            auth=None, 
+            headers=None, 
+            session=None,
+            ):
         '''Create a HALNavigator'''
         root = utils.fix_scheme(root)
         halnav = HALNavigator(
@@ -177,9 +183,11 @@ class Navigator(object):
                 nav_class=HALNavigator,
                 apiname=apiname,
                 default_curie=default_curie,
+                session=session,
             )
         )
-        halnav.authenticate(auth)
+        if auth:
+            halnav.authenticate(auth)
         halnav.headers.update(DEFAULT_HEADERS)
         if headers is not None:
             halnav.headers.update(headers)
