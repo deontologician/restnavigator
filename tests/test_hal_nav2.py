@@ -491,6 +491,18 @@ class TestEmbedded:
         assert nested1_linked.resolved
         assert nested1 is nested1_linked
 
+    def test_cached_embedded_requests(self, N, index, http):
+        N.fetch()
+        main_nav_request = http.last_request
+        embedded = N.embedded()['xx:posts'][0]
+        # get the cached state of the embedded resource, no additional
+        # http requests should be made.
+        embedded()
+        assert main_nav_request is http.last_request
+        # if we explicitly refetch the embedded (not orphaned) Navigator, we
+        # expect that a new http request is being made.
+        embedded.fetch()
+        assert main_nav_request is not http.last_request
 
 class TestCreate:
 

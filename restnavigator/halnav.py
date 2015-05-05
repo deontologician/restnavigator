@@ -536,7 +536,7 @@ class HALNavigator(HALNavigatorBase):
     '''The main navigation entity'''
 
     def __call__(self, raise_exc=True):
-        if self.response is None:
+        if not self.resolved:
             return self.fetch(raise_exc=raise_exc)
         else:
             return self.state.copy()
