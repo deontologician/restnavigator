@@ -505,7 +505,9 @@ class HALNavigatorBase(object):
         JSON
         '''
         self.response = response
-        if self._can_parse(response.headers['Content-Type']):
+        if int(response.headers.get('Content-Length', 0)) == 0:
+            hal_json = {}        
+        elif self._can_parse(response.headers['Content-Type']):
             hal_json = self._parse_content(response.text)
         else:
             raise exc.HALNavigatorError(
