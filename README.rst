@@ -3,6 +3,8 @@ REST Navigator
 
 |Build Status| |Coverage Status| |Pypi Status| |Documentation Status|
 
+Note: this project is unmaintained! Feel free to fork it!
+
 REST Navigator is a python library for interacting with hypermedia apis
 (`REST level
 3 <http://martinfowler.com/articles/richardsonMaturityModel.html#level3>`__).
