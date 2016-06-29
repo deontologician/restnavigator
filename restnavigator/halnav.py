@@ -552,8 +552,9 @@ class HALNavigator(HALNavigatorBase):
                 http_client.SEE_OTHER,
                 http_client.NO_CONTENT) \
            and 'Location' in response.headers:
+            uri = urlparse.urljoin(self._core.root, response.headers['Location'])
             nav = HALNavigator(
-                link=Link(uri=response.headers['Location']),
+                link=Link(uri=uri),
                 core=self._core
             )
             # We don't ingest the response because we haven't fetched
