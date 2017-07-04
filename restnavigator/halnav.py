@@ -575,7 +575,7 @@ class HALNavigator(HALNavigatorBase):
 
         return nav
 
-    def _request(self, method, body=None, raise_exc=True, headers=None):
+    def _request(self, method, body=None, raise_exc=True, headers=None, files=None):
         '''Fetches HTTP response using the passed http method. Raises
         HALNavigatorError if response is in the 400-500 range.'''
         headers = headers or {}
@@ -586,6 +586,7 @@ class HALNavigator(HALNavigatorBase):
             self.uri,
             data=body if not isinstance(body, dict) else None,
             json=body if isinstance(body, dict) else None,
+            files=files,
             headers=headers,
             allow_redirects=False,
         )
@@ -606,7 +607,7 @@ class HALNavigator(HALNavigatorBase):
         self.fetched = True
         return self.state.copy()
 
-    def create(self, body=None, raise_exc=True, headers=None):
+    def create(self, body=None, raise_exc=True, headers=None, **kwargs):
         '''Performs an HTTP POST to the server, to create a
         subordinate resource. Returns a new HALNavigator representing
         that resource.
@@ -614,16 +615,16 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(POST, body, raise_exc, headers)
+        return self._request(POST, body, raise_exc, headers, **kwargs)
 
-    def delete(self, raise_exc=True, headers=None):
+    def delete(self, raise_exc=True, headers=None, files=None):
         '''Performs an HTTP DELETE to the server, to delete resource(s).
 
         `headers` are additional headers to send in the request'''
 
-        return self._request(DELETE, None, raise_exc, headers)
+        return self._request(DELETE, None, raise_exc, headers, files)
 
-    def upsert(self, body, raise_exc=True, headers=False):
+    def upsert(self, body, raise_exc=True, headers=False, files=None):
         '''Performs an HTTP PUT to the server. This is an idempotent
         call that will create the resource this navigator is pointing
         to, or will update it if it already exists.
@@ -631,9 +632,9 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(PUT, body, raise_exc, headers)
+        return self._request(PUT, body, raise_exc, headers, files)
 
-    def patch(self, body, raise_exc=True, headers=False):
+    def patch(self, body, raise_exc=True, headers=False, files=None):
         '''Performs an HTTP PATCH to the server. This is a
         non-idempotent call that may update all or a portion of the
         resource this navigator is pointing to. The format of the
@@ -642,7 +643,7 @@ class HALNavigator(HALNavigatorBase):
         `body` may either be a string or a dictionary representing json
         `headers` are additional headers to send in the request
         '''
-        return self._request(PATCH, body, raise_exc, headers)
+        return self._request(PATCH, body, raise_exc, headers, files)
 
 
 class OrphanHALNavigator(HALNavigatorBase):

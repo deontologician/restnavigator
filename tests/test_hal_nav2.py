@@ -551,7 +551,7 @@ class TestCreate:
     def test_body_is_correct(self, N, index, http):
         N['xx:create-hosts'].create({'name': 'foo'})
         last_body = http.last_request.body
-        last_body == b'{"name": "foo"}'
+        assert last_body == b'{"name": "foo"}'
 
     def test_new_resource_uri_correct(
             self, N, index, new_resource, post_status):
@@ -568,6 +568,12 @@ class TestCreate:
         headers = {'X-Custom': 'foo'}
         N['xx:create-hosts'].create({'name': 'foo'}, headers=headers)
         custom_header = http.last_request.headers['X-Custom']
+        assert custom_header == 'foo'
+
+    def test_files_passed(self, N, index, http):
+        headers = {'X-Custom': 'foo'}
+        N['xx:create-hosts'].create(files={'file': ('filename', )}, headers=headers)
+        custom_header = http.last_request
         assert custom_header == 'foo'
 
     def test_empty_post(self, N, index):
