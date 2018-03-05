@@ -607,6 +607,6 @@ Thanks very much to rest navigator's contributors:
 .. |Documentation Status| image:: https://readthedocs.org/projects/rest-navigator/badge/?version=latest
    :target: https://readthedocs.org/projects/rest-navigator/?badge=latest
    :alt: Documentation Status
-.. |Pypi Status| image:: https://pypip.in/v/restnavigator/badge.png
+.. |Pypi Status| image:: https://img.shields.io/pypi/v/restnavigator.svg
    :target: https://crate.io/packages/restnavigator/
 
